@@ -70,8 +70,12 @@ and sways in bends, and over a sharp crest at speed the car takes off and
 lands with a thump through the springs. The grass is bumpy.
 
 Traffic cruises in the three lanes at a quarter to a half of your top
-speed, slows down behind whatever is ahead of it (you included), and
-stops you dead if you run into it. Leaving the road at speed into a tree
+speed, with a lorry every fourth vehicle crawling along at a fifth to
+just over a quarter, slows down behind whatever is ahead of it (you
+included), and stops you dead if you run into it. A rear-view mirror at
+the top of the screen looks back down the road, drawn by a second camera
+facing the other way and flipped so that what is on your right stays on
+your right. Leaving the road at speed into a tree
 or a sign is a crash: most of your speed goes, the car bounces back and
 the suspension takes a jolt. The HUD shows the speed in mph in big arcade lettering at the top centre, the gear, the lap number
 with the running lap time, and the best lap once you have one.

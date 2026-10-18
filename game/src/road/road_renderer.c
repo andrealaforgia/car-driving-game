@@ -154,13 +154,14 @@ static color_t mix(color_t from, color_t to, double amount) {
  * one full turn pans across the whole texture. */
 static void draw_mountains(const graphics_context_ptr graphics_context,
                            const road_renderer_t* road_renderer,
-                           const road_view_t* view, int horizon) {
+                           const road_view_t* view, view_area_t area,
+                           int horizon) {
   const texture_ptr mountains = (const texture_ptr)&road_renderer->mountains;
   if (!mountains->texture) {
     return;
   }
-  int width = graphics_context->screen_width;
-  int height = (int)(graphics_context->screen_height * 0.16);
+  int width = area.width;
+  int height = (int)(area.height * 0.16);
   int span = (int)(MOUNTAIN_WIDTH * CAMERA_FIELD_OF_VIEW_DEGREES / 360.0);
   double turn = fmod(view->pose.yaw / (2.0 * M_PI), 1.0);
   if (turn < 0.0) {
@@ -171,36 +172,48 @@ static void draw_mountains(const graphics_context_ptr graphics_context,
   int first = span < MOUNTAIN_WIDTH - start ? span : MOUNTAIN_WIDTH - start;
   int first_width = width * first / span;
   rect_t source = make_rect(start, 0, first, MOUNTAIN_HEIGHT);
-  rect_t destination = make_rect(0, horizon - height, first_width, height);
+  rect_t destination = make_rect(area.x, horizon - height, first_width, height);
   render_sprite(graphics_context, mountains, &source, &destination);
   if (first < span) {
     rect_t rest = make_rect(0, 0, span - first, MOUNTAIN_HEIGHT);
-    rect_t rest_destination =
-        make_rect(first_width, horizon - height, width - first_width, height);
+    rect_t rest_destination = make_rect(area.x + first_width, horizon - height,
+                                        width - first_width, height);
     render_sprite(graphics_context, mountains, &rest, &rest_destination);
+  }
+}
+
+view_area_t whole_screen(const graphics_context_ptr graphics_context) {
+  view_area_t area = {0, 0, graphics_context->screen_width,
+                      graphics_context->screen_height};
+  return area;
+}
+
+void render_backdrop_in(const graphics_context_ptr graphics_context,
+                        const road_renderer_t* road_renderer,
+                        const road_view_t* view, view_area_t area) {
+  int horizon = area.y + (int)lround(view->horizon * area.height);
+  int sky_height = horizon > area.y ? horizon - area.y : 0;
+  for (int band = 0; band < SKY_BANDS; ++band) {
+    int top = area.y + sky_height * band / SKY_BANDS;
+    int bottom = area.y + sky_height * (band + 1) / SKY_BANDS;
+    color_t color = mix(COLOR_SKY_TOP, COLOR_SKY_HORIZON,
+                        pow((double)band / (SKY_BANDS - 1), 1.5));
+    draw_filled_rect(graphics_context, area.x, top, area.width, bottom - top,
+                     color);
+  }
+  draw_mountains(graphics_context, road_renderer, view, area, horizon);
+  int bottom = area.y + area.height;
+  if (horizon < bottom) {
+    draw_filled_rect(graphics_context, area.x, horizon, area.width,
+                     bottom - horizon, mix(COLOR_GRASS_DARK, COLOR_HAZE, 0.9));
   }
 }
 
 void render_backdrop(const graphics_context_ptr graphics_context,
                      const road_renderer_t* road_renderer,
                      const road_view_t* view) {
-  int width = graphics_context->screen_width;
-  int screen_height = graphics_context->screen_height;
-  int horizon = (int)lround(view->horizon * screen_height);
-  int sky_height = horizon > 0 ? horizon : 0;
-  for (int band = 0; band < SKY_BANDS; ++band) {
-    int top = sky_height * band / SKY_BANDS;
-    int bottom = sky_height * (band + 1) / SKY_BANDS;
-    color_t color = mix(COLOR_SKY_TOP, COLOR_SKY_HORIZON,
-                        pow((double)band / (SKY_BANDS - 1), 1.5));
-    draw_filled_rect(graphics_context, 0, top, width, bottom - top, color);
-  }
-  draw_mountains(graphics_context, road_renderer, view, horizon);
-  if (horizon < screen_height) {
-    draw_filled_rect(graphics_context, 0, horizon, width,
-                     screen_height - horizon,
-                     mix(COLOR_GRASS_DARK, COLOR_HAZE, 0.9));
-  }
+  render_backdrop_in(graphics_context, road_renderer, view,
+                     whole_screen(graphics_context));
 }
 
 static color_t polygon_color(const view_polygon_t* polygon) {
@@ -216,16 +229,15 @@ static color_t polygon_color(const view_polygon_t* polygon) {
   }
 }
 
-static void fill_vertices(const graphics_context_ptr graphics_context,
-                          const view_polygon_t* polygon, SDL_Vertex* vertices,
-                          color_t color, uint8_t alpha) {
+static void fill_vertices(view_area_t area, const view_polygon_t* polygon,
+                          SDL_Vertex* vertices, color_t color, uint8_t alpha) {
   SDL_Color sdl_color = {(uint8_t)R(color), (uint8_t)G(color),
                          (uint8_t)B(color), alpha};
   for (int i = 0; i < polygon->vertex_count; ++i) {
     vertices[i].position.x =
-        (float)(polygon->vertices[i].x * graphics_context->screen_width);
+        (float)(area.x + polygon->vertices[i].x * area.width);
     vertices[i].position.y =
-        (float)(polygon->vertices[i].y * graphics_context->screen_height);
+        (float)(area.y + polygon->vertices[i].y * area.height);
     vertices[i].color = sdl_color;
     vertices[i].tex_coord.x = (float)polygon->vertices[i].u;
     vertices[i].tex_coord.y = (float)polygon->vertices[i].v;
@@ -234,7 +246,7 @@ static void fill_vertices(const graphics_context_ptr graphics_context,
 
 static void draw_polygon(const graphics_context_ptr graphics_context,
                          const road_renderer_t* road_renderer,
-                         const view_polygon_t* polygon) {
+                         const view_polygon_t* polygon, view_area_t area) {
   SDL_Vertex vertices[POLYGON_MAX_VERTICES];
   int indices[(POLYGON_MAX_VERTICES - 2) * 3];
   int index_count = 0;
@@ -245,19 +257,19 @@ static void draw_polygon(const graphics_context_ptr graphics_context,
   }
   bool textured = polygon->surface == SURFACE_ROAD && road_renderer->asphalt;
   if (textured) {
-    fill_vertices(graphics_context, polygon, vertices,
+    fill_vertices(area, polygon, vertices,
                   polygon->light ? TINT_ROAD_LIGHT : TINT_ROAD_DARK, 255);
     SDL_RenderGeometry(graphics_context->renderer, road_renderer->asphalt,
                        vertices, polygon->vertex_count, indices, index_count);
     if (polygon->fog > 0.02) {
-      fill_vertices(graphics_context, polygon, vertices, COLOR_HAZE,
+      fill_vertices(area, polygon, vertices, COLOR_HAZE,
                     (uint8_t)(polygon->fog * 255.0));
       SDL_RenderGeometry(graphics_context->renderer, NULL, vertices,
                          polygon->vertex_count, indices, index_count);
     }
     return;
   }
-  fill_vertices(graphics_context, polygon, vertices,
+  fill_vertices(area, polygon, vertices,
                 mix(polygon_color(polygon), COLOR_HAZE, polygon->fog), 255);
   SDL_RenderGeometry(graphics_context->renderer, NULL, vertices,
                      polygon->vertex_count, indices, index_count);
@@ -265,20 +277,20 @@ static void draw_polygon(const graphics_context_ptr graphics_context,
 
 static void draw_sprite(const graphics_context_ptr graphics_context,
                         const road_renderer_t* road_renderer,
-                        const view_sprite_t* sprite) {
+                        const view_sprite_t* sprite, view_area_t area) {
   int variant = sprite->variant % billboard_variants(sprite->kind);
   const texture_ptr texture =
       (const texture_ptr)&road_renderer->sprites[sprite->kind][variant];
   if (!texture->texture) {
     return;
   }
-  int width = (int)lround(sprite->width * graphics_context->screen_width);
-  int height = (int)lround(sprite->height * graphics_context->screen_height);
+  int width = (int)lround(sprite->width * area.width);
+  int height = (int)lround(sprite->height * area.height);
   if (width < 1 || height < 1) {
     return;
   }
-  int x = (int)lround(sprite->x * graphics_context->screen_width) - width / 2;
-  int bottom = (int)lround(sprite->y * graphics_context->screen_height);
+  int x = area.x + (int)lround(sprite->x * area.width) - width / 2;
+  int bottom = area.y + (int)lround(sprite->y * area.height);
   rect_t destination = make_rect(x, bottom - height, width, height);
   SDL_SetTextureAlphaMod(texture->texture,
                          (uint8_t)((1.0 - sprite->fog) * 255.0));
@@ -286,19 +298,26 @@ static void draw_sprite(const graphics_context_ptr graphics_context,
   SDL_SetTextureAlphaMod(texture->texture, 255);
 }
 
-void render_road_view(const graphics_context_ptr graphics_context,
-                      const road_renderer_t* road_renderer,
-                      const road_view_t* view) {
+void render_road_view_in(const graphics_context_ptr graphics_context,
+                         const road_renderer_t* road_renderer,
+                         const road_view_t* view, view_area_t area) {
   if (!graphics_context->renderer) {
     return;
   }
   for (int i = 0; i < view->order_count; ++i) {
     int id = view->order[i];
     if (id < MAX_VIEW_POLYGONS) {
-      draw_polygon(graphics_context, road_renderer, &view->polygons[id]);
+      draw_polygon(graphics_context, road_renderer, &view->polygons[id], area);
     } else {
       draw_sprite(graphics_context, road_renderer,
-                  &view->sprites[id - MAX_VIEW_POLYGONS]);
+                  &view->sprites[id - MAX_VIEW_POLYGONS], area);
     }
   }
+}
+
+void render_road_view(const graphics_context_ptr graphics_context,
+                      const road_renderer_t* road_renderer,
+                      const road_view_t* view) {
+  render_road_view_in(graphics_context, road_renderer, view,
+                      whole_screen(graphics_context));
 }

@@ -12,7 +12,8 @@
 int main(int argc, char* argv[]) {
   if (argc < 2) {
     fprintf(stderr,
-            "usage: render_snapshot out.bmp [position] [car_x] [seed]\n");
+            "usage: render_snapshot out.bmp [position|lap fraction] [car_x] "
+            "[seed]\n");
     return 2;
   }
   double position = argc > 2 ? atof(argv[2]) : 0.0;
@@ -39,6 +40,10 @@ int main(int argc, char* argv[]) {
 
   driving_stage_t stage;
   init_driving_stage(&stage, &graphics_context, NULL, NULL, false, 60, seed);
+  /* A position below one is a fraction of the lap. */
+  if (position > 0.0 && position < 1.0) {
+    position *= stage.track.length;
+  }
   stage.car.position = position;
   stage.car.x = car_x;
   stage.car.speed = CAR_MAX_SPEED / 2;

@@ -23,6 +23,7 @@ typedef struct {
   double lateral;
   double speed;
   int colour;
+  bool truck;
 } traffic_car_t;
 
 typedef struct {
@@ -41,5 +42,9 @@ void update_traffic(traffic_t* traffic, double seconds, double track_length,
 bool hit_traffic(const traffic_t* traffic, car_t* player, double track_length);
 
 billboard_t traffic_billboard(const track_t* track, const traffic_car_t* car);
+
+/* Along the road, in world units, and across it, in road half widths. */
+double traffic_vehicle_length(const traffic_car_t* car);
+double traffic_vehicle_width(const traffic_car_t* car);
 
 #endif  // GAME_SRC_TRAFFIC_TRAFFIC_H_

@@ -20,6 +20,9 @@
 #define COLOR_RED_ZONE 0xD02020
 #define COLOR_LABEL 0xC0C0C8
 #define COLOR_ENGRAVE_DARK 0x2E2E34
+#define COLOR_MIRROR_HOUSING 0x1C1C20
+#define COLOR_MIRROR_HOUSING_LIT 0x34343A
+#define COLOR_MIRROR_GLASS_EDGE 0xB8C8D8
 #define COLOR_ENGRAVE_LIGHT 0xD8D8DE
 
 /* The lever's height relative to the plate, and how far (degrees) it
@@ -254,6 +257,45 @@ static void draw_steering_wheel(const graphics_context_ptr graphics_context,
   SDL_RenderCopyEx(graphics_context->renderer, renderer->wheel.texture, NULL,
                    &destination, wheel_angle * 180.0 / M_PI, NULL,
                    SDL_FLIP_NONE);
+}
+
+void render_mirror_frame(const graphics_context_ptr graphics_context,
+                         const dashboard_layout_t* layout) {
+  int half_w = layout->mirror_width / 2;
+  int half_h = layout->mirror_height / 2;
+  int cx = layout->mirror_x;
+  int cy = layout->mirror_y;
+  int rim = half_h / 7 + 2;
+  SDL_Point top[4] = {{cx - half_w - rim, cy - half_h - rim},
+                      {cx + half_w + rim, cy - half_h - rim},
+                      {cx + half_w, cy - half_h},
+                      {cx - half_w, cy - half_h}};
+  SDL_Point bottom[4] = {{cx - half_w, cy + half_h},
+                         {cx + half_w, cy + half_h},
+                         {cx + half_w + rim, cy + half_h + rim},
+                         {cx - half_w - rim, cy + half_h + rim}};
+  SDL_Point left[4] = {{cx - half_w - rim, cy - half_h - rim},
+                       {cx - half_w, cy - half_h},
+                       {cx - half_w, cy + half_h},
+                       {cx - half_w - rim, cy + half_h + rim}};
+  SDL_Point right[4] = {{cx + half_w, cy - half_h},
+                        {cx + half_w + rim, cy - half_h - rim},
+                        {cx + half_w + rim, cy + half_h + rim},
+                        {cx + half_w, cy + half_h}};
+  draw_filled_polygon(graphics_context, top, 4, COLOR_MIRROR_HOUSING_LIT);
+  draw_filled_polygon(graphics_context, left, 4, COLOR_MIRROR_HOUSING_LIT);
+  draw_filled_polygon(graphics_context, bottom, 4, COLOR_MIRROR_HOUSING);
+  draw_filled_polygon(graphics_context, right, 4, COLOR_MIRROR_HOUSING);
+  int stalk = half_w / 12 + 2;
+  SDL_Point mount[4] = {{cx - stalk, 0},
+                        {cx + stalk, 0},
+                        {cx + stalk, cy - half_h - rim},
+                        {cx - stalk, cy - half_h - rim}};
+  draw_filled_polygon(graphics_context, mount, 4, COLOR_MIRROR_HOUSING);
+  draw_line(graphics_context, cx - half_w, cy - half_h, cx + half_w,
+            cy - half_h, COLOR_MIRROR_GLASS_EDGE);
+  draw_line(graphics_context, cx - half_w, cy - half_h, cx - half_w,
+            cy + half_h, COLOR_MIRROR_GLASS_EDGE);
 }
 
 void render_cockpit(const graphics_context_ptr graphics_context,

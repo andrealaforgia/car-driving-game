@@ -40,6 +40,9 @@ typedef struct {
   camera_t camera;
   camera_pose_t pose;
   road_view_t view;
+  camera_t mirror_camera;
+  camera_pose_t mirror_pose;
+  road_view_t mirror_view;
   road_renderer_t road_renderer;
   cockpit_renderer_t cockpit_renderer;
   arcade_font_t font; /* for the big speed readout */
@@ -61,6 +64,8 @@ void destroy_driving_stage(driving_stage_ptr stage);
 /* delta_time is normalised to the 60 FPS baseline, as the engine reports it */
 void advance_driving_stage(driving_stage_ptr stage, car_input_t input,
                            double delta_time);
+/* Builds the views for the next frame without drawing them. */
+void prepare_driving_stage_frame(driving_stage_ptr stage);
 void render_driving_stage(driving_stage_ptr stage);
 
 /* Runs until ESC or the window closes. */

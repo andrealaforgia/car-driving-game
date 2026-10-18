@@ -37,8 +37,10 @@ traffic_t create_traffic(unsigned seed, double track_length, int count) {
     car->position =
         spacing * (i + 0.5 + JITTER_FRACTION * (roll_fraction(&dice) - 0.5));
     car->lateral = lane_lateral((int)roll(&dice, LANES));
-    car->speed = TRAFFIC_MIN_SPEED +
-                 (TRAFFIC_MAX_SPEED - TRAFFIC_MIN_SPEED) * roll_fraction(&dice);
+    car->truck = i % TRAFFIC_TRUCK_EVERY == TRAFFIC_TRUCK_EVERY - 1;
+    double slowest = car->truck ? TRAFFIC_TRUCK_MIN_SPEED : TRAFFIC_MIN_SPEED;
+    double fastest = car->truck ? TRAFFIC_TRUCK_MAX_SPEED : TRAFFIC_MAX_SPEED;
+    car->speed = slowest + (fastest - slowest) * roll_fraction(&dice);
     car->colour = (int)roll(&dice, BILLBOARD_VARIANTS);
   }
   traffic.count = count;
@@ -55,8 +57,16 @@ static double gap_ahead(double from, double to, double length) {
   return wrap(to - from, length);
 }
 
-static bool same_lane(double a, double b) {
-  return fabs(a - b) < TRAFFIC_CAR_WIDTH + CAR_HALF_WIDTH;
+double traffic_vehicle_length(const traffic_car_t* car) {
+  return car->truck ? TRAFFIC_TRUCK_LENGTH : TRAFFIC_CAR_LENGTH;
+}
+
+double traffic_vehicle_width(const traffic_car_t* car) {
+  return car->truck ? TRAFFIC_TRUCK_WIDTH : TRAFFIC_CAR_WIDTH;
+}
+
+static bool same_lane(double a, double b, double width) {
+  return fabs(a - b) < width + CAR_HALF_WIDTH;
 }
 
 static double speed_of_car_ahead(const traffic_t* traffic, int index,
@@ -67,7 +77,8 @@ static double speed_of_car_ahead(const traffic_t* traffic, int index,
   double speed = car->speed;
   for (int i = 0; i < traffic->count; ++i) {
     const traffic_car_t* other = &traffic->cars[i];
-    if (i == index || !same_lane(car->lateral, other->lateral)) {
+    if (i == index || !same_lane(car->lateral, other->lateral,
+                                 traffic_vehicle_width(other))) {
       continue;
     }
     double distance = gap_ahead(car->position, other->position, track_length);
@@ -76,7 +87,7 @@ static double speed_of_car_ahead(const traffic_t* traffic, int index,
       speed = other->speed;
     }
   }
-  if (player && same_lane(car->lateral, player->x)) {
+  if (player && same_lane(car->lateral, player->x, CAR_HALF_WIDTH)) {
     double distance = gap_ahead(car->position, player->position, track_length);
     if (distance < nearest) {
       nearest = distance;
@@ -110,15 +121,16 @@ bool hit_traffic(const traffic_t* traffic, car_t* player, double track_length) {
   for (int i = 0; i < traffic->count; ++i) {
     const traffic_car_t* car = &traffic->cars[i];
     double ahead = gap_ahead(player->position, car->position, track_length);
-    if (ahead > TRAFFIC_CAR_LENGTH) {
+    double length = traffic_vehicle_length(car);
+    if (ahead > length) {
       continue;
     }
     if (fabs(player->x - car->lateral) >=
-        TRAFFIC_CAR_WIDTH / 2.0 + CAR_HALF_WIDTH) {
+        traffic_vehicle_width(car) / 2.0 + CAR_HALF_WIDTH) {
       continue;
     }
     player->speed = fmin(player->speed, car->speed);
-    player->position = wrap(car->position - TRAFFIC_CAR_LENGTH, track_length);
+    player->position = wrap(car->position - length, track_length);
     player->lateral_speed =
         player->x >= car->lateral ? TRAFFIC_SHOVE : -TRAFFIC_SHOVE;
     return true;
@@ -128,11 +140,12 @@ bool hit_traffic(const traffic_t* traffic, car_t* player, double track_length) {
 
 billboard_t traffic_billboard(const track_t* track, const traffic_car_t* car) {
   billboard_t billboard;
-  sprite_size_t size = billboard_sprite_size(BILLBOARD_CAR, car->colour);
+  billboard_kind_t kind = car->truck ? BILLBOARD_TRUCK : BILLBOARD_CAR;
+  sprite_size_t size = billboard_sprite_size(kind, car->colour);
   billboard.position = track_point_at(track, car->position, car->lateral);
-  billboard.width = TRAFFIC_CAR_WIDTH * ROAD_HALF_WIDTH;
+  billboard.width = traffic_vehicle_width(car) * ROAD_HALF_WIDTH;
   billboard.height = billboard.width * size.height / size.width;
-  billboard.kind = BILLBOARD_CAR;
+  billboard.kind = kind;
   billboard.variant = car->colour;
   return billboard;
 }

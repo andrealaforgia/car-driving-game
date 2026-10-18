@@ -22,6 +22,7 @@
 #define CAMERA_FIELD_OF_VIEW_DEGREES 100.0
 #define CAMERA_HEIGHT 650.0
 #define CAMERA_NEAR_PLANE 50.0
+#define MIRROR_FIELD_OF_VIEW_DEGREES 70.0
 
 /* Car, in world units per second. CAR_SPEED_LIMIT keeps the car under one
  * segment per frame at the physics baseline; CAR_MAX_SPEED is the top speed
@@ -86,6 +87,12 @@
 #define TRAFFIC_FOLLOW_DISTANCE (3.0 * TRAFFIC_CAR_LENGTH)
 #define TRAFFIC_BRAKE_RATE 10.0
 #define TRAFFIC_ACCELERATION_RATE 1.0
+/* Every fourth vehicle is a truck: longer, wider and slower. */
+#define TRAFFIC_TRUCK_EVERY 4
+#define TRAFFIC_TRUCK_LENGTH 900.0
+#define TRAFFIC_TRUCK_WIDTH 0.62
+#define TRAFFIC_TRUCK_MIN_SPEED (0.18 * CAR_MAX_SPEED)
+#define TRAFFIC_TRUCK_MAX_SPEED (0.28 * CAR_MAX_SPEED)
 #define TRAFFIC_SHOVE 1.0
 
 #endif  // GAME_SRC_MAIN_GAME_CONSTANTS_H_

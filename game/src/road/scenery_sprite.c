@@ -74,6 +74,28 @@ static const char* const CAR[18] = {
     ".kkkkkccccccccccccccccckkkk.", ".kkkkkkkkkkkkkkkkkkkkkkkkkk.",
     "..kkkk..................kkkk", "..kkkk..................kkkk"};
 
+/* Rear view of a box lorry: doors with a seam and ribs, marker lights,
+ * a bumper with lights, and twin wheels. */
+static const char* const TRUCK[36] = {
+    ".cccccccccccccccccccccc.", ".cWCCCCCCCCccCCCCCCCCWc.",
+    ".cCCCCCCCCCccCCCCCCCCCc.", ".cCCCCCCCCCccCCCCCCCCCc.",
+    ".cCCCCCCCCCccCCCCCCCCCc.", ".cCCCCCCCCCccCCCCCCCCCc.",
+    ".cCCCCCCCCCccCCCCCCCCCc.", ".cccccccccccccccccccccc.",
+    ".cCCCCCCCCCccCCCCCCCCCc.", ".cCCCCCCCCCccCCCCCCCCCc.",
+    ".cCCCCCCCCCccCCCCCCCCCc.", ".cCCCCCCCCCccCCCCCCCCCc.",
+    ".cCCCCCCCCCccCCCCCCCCCc.", ".cCCCCCCCCCccCCCCCCCCCc.",
+    ".cccccccccccccccccccccc.", ".cCCCCCCCCCccCCCCCCCCCc.",
+    ".cCCCCCCCCCccCCCCCCCCCc.", ".cCCCCCCCCCccCCCCCCCCCc.",
+    ".cCCCCCCCCCccCCCCCCCCCc.", ".cCCCCCCCCCccCCCCCCCCCc.",
+    ".cCCCCCCCCCccCCCCCCCCCc.", ".cccccccccccccccccccccc.",
+    ".cCCCCCCCCCccCCCCCCCCCc.", ".cCCCCCCCCCccCCCCCCCCCc.",
+    ".cCCCCCCCCCccCCCCCCCCCc.", ".cCCCCCCCCCccCCCCCCCCCc.",
+    ".cCCCCCCCCCccCCCCCCCCCc.", ".cccccccccccccccccccccc.",
+    ".RRSSSSSSSSSSSSSSSSSSRR.", ".RRYSSSSSSSSSSSSSSSSYRR.",
+    "..KKKKKKKKKKKKKKKKKKKK..", "..KKKKKKKKKKKKKKKKKKKK..",
+    ".kkkkkk..........kkkkkk.", ".kkkkkk..........kkkkkk.",
+    ".kkkkkk..........kkkkkk.", ".kkkkkk..........kkkkkk."};
+
 static art_t art_for(billboard_kind_t kind, int variant) {
   art_t art = {0, 0, NULL};
   switch (kind) {
@@ -97,6 +119,11 @@ static art_t art_for(billboard_kind_t kind, int variant) {
       art.height = 18;
       art.rows = CAR;
       break;
+    case BILLBOARD_TRUCK:
+      art.width = 24;
+      art.height = 36;
+      art.rows = TRUCK;
+      break;
     default:
       break;
   }
@@ -109,6 +136,7 @@ int billboard_variants(billboard_kind_t kind) {
     case BILLBOARD_SIGN:
       return 2;
     case BILLBOARD_CAR:
+    case BILLBOARD_TRUCK:
       return BILLBOARD_VARIANTS;
     default:
       return 1;

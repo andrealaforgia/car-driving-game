@@ -37,6 +37,7 @@ void begin_road_view(road_view_t* view, const camera_t* camera,
   view->sprite_count = 0;
   view->order_count = 0;
   view->horizon = horizon_y(camera, pose);
+  view->current_segment = 0;
 }
 
 static bool off_screen(const view_polygon_t* polygon) {
@@ -78,6 +79,7 @@ static void add_quad(road_view_t* view, const vec3_t corners[4],
     return;
   }
   view_polygon_t* polygon = &view->polygons[view->polygon_count];
+  polygon->segment = view->current_segment;
   double depth_sum = 0.0;
   polygon->depth = 0.0;
   for (int i = 0; i < count; ++i) {
@@ -144,6 +146,7 @@ static int pieces_for(double nearest_z) {
 
 static void add_segment_to_view(road_view_t* view, const segment_t* segment,
                                 int index) {
+  view->current_segment = index;
   vec3_t start = to_camera_space(&view->pose, segment->start);
   vec3_t end = to_camera_space(&view->pose, segment->end);
   double reach = GRASS_EXTENT * ROAD_HALF_WIDTH;
@@ -189,6 +192,37 @@ void add_track_to_view(road_view_t* view, const track_t* track,
   for (int n = 0; n < track->count; ++n) {
     int index = ((first + n) % track->count + track->count) % track->count;
     add_segment_to_view(view, &track->segments[index], index);
+  }
+}
+
+camera_pose_t mirror_camera_pose(const track_t* track, double position,
+                                 double car_x, double car_height) {
+  camera_pose_t pose;
+  pose.position = track_point_at(track, position, car_x);
+  pose.position.y = car_height + CAMERA_HEIGHT;
+  pose.yaw = wrap_angle(track_heading_at(track, position) + M_PI);
+  pose.pitch = -atan(track_slope_at(track, position));
+  return pose;
+}
+
+void add_track_behind_to_view(road_view_t* view, const track_t* track,
+                              double position) {
+  int first = segment_index_at(track, position) + SEGMENTS_BEHIND;
+  for (int n = 0; n < track->count; ++n) {
+    int index = ((first - n) % track->count + track->count) % track->count;
+    add_segment_to_view(view, &track->segments[index], index);
+  }
+}
+
+void mirror_road_view(road_view_t* view) {
+  for (int i = 0; i < view->polygon_count; ++i) {
+    view_polygon_t* polygon = &view->polygons[i];
+    for (int v = 0; v < polygon->vertex_count; ++v) {
+      polygon->vertices[v].x = 1.0 - polygon->vertices[v].x;
+    }
+  }
+  for (int i = 0; i < view->sprite_count; ++i) {
+    view->sprites[i].x = 1.0 - view->sprites[i].x;
   }
 }
 

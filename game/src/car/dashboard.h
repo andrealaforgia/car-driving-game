@@ -67,6 +67,10 @@ typedef struct {
   int gate_y;
   int gate_width;
   int gate_height;
+  int mirror_x; /* centre of the rear-view mirror at the top */
+  int mirror_y;
+  int mirror_width;
+  int mirror_height;
 } dashboard_layout_t;
 
 dashboard_layout_t dashboard_layout(int width, int height,

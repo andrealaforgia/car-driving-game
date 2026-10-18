@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "cockpit_renderer.h"
 #include "color.h"
@@ -39,6 +40,15 @@ bool init_driving_stage(driving_stage_ptr stage,
   stage->pose = cockpit_camera_pose(&stage->track, 0.0, 0.0, 0.0, 0.0);
   stage->view.polygon_count = 0;
   stage->view.order_count = 0;
+  dashboard_state_t still = {0.0, 0.0, 0.0, 0.0, 0.0, 1};
+  dashboard_layout_t layout = dashboard_layout(
+      graphics_context->screen_width, graphics_context->screen_height, &still);
+  stage->mirror_camera =
+      create_camera(MIRROR_FIELD_OF_VIEW_DEGREES,
+                    (double)layout.mirror_width / layout.mirror_height);
+  stage->mirror_pose = mirror_camera_pose(&stage->track, 0.0, 0.0, 0.0);
+  stage->mirror_view.polygon_count = 0;
+  stage->mirror_view.order_count = 0;
   stage->road_renderer = init_road_renderer(graphics_context);
   stage->cockpit_renderer = init_cockpit_renderer(graphics_context);
   stage->font = (arcade_font_t){0};
@@ -185,11 +195,16 @@ static void render_hud(driving_stage_ptr stage) {
   char text[48];
   format_speed(stage->car.speed, text, sizeof text);
   int speed_scale = scale * 2;
+  dashboard_state_t still = {0.0, 0.0, 0.0, 0.0, 0.0, 1};
+  dashboard_layout_t layout =
+      dashboard_layout(stage->graphics_context->screen_width,
+                       stage->graphics_context->screen_height, &still);
+  int under_mirror = layout.mirror_y + layout.mirror_height / 2 + 4 * scale;
   int speed_width =
       get_arcade_text_width_scaled(&stage->font, text, speed_scale);
   render_arcade_text_scaled(
       &stage->font, stage->graphics_context, text,
-      (stage->graphics_context->screen_width - speed_width) / 2, 12,
+      (stage->graphics_context->screen_width - speed_width) / 2, under_mirror,
       FONT_COLOR_WHITE, speed_scale);
   snprintf(text, sizeof text, "GEAR %d", engine_gear(stage->car.speed));
   write_right_aligned(stage, text, 10, scale);
@@ -210,28 +225,66 @@ static void render_hud(driving_stage_ptr stage) {
   }
 }
 
-static void build_view(driving_stage_ptr stage) {
+static void add_scenery_and_traffic(driving_stage_ptr stage,
+                                    road_view_t* view) {
+  for (int i = 0; i < stage->scenery.count; ++i) {
+    add_billboard_to_view(view, &stage->scenery.items[i].billboard);
+  }
+  for (int i = 0; i < stage->traffic.count; ++i) {
+    billboard_t car = traffic_billboard(&stage->track, &stage->traffic.cars[i]);
+    add_billboard_to_view(view, &car);
+  }
+}
+
+void prepare_driving_stage_frame(driving_stage_ptr stage) {
   stage->pose =
       cockpit_camera_pose(&stage->track, stage->car.position, stage->car.x,
                           stage->body.height, stage->body.pitch);
   begin_road_view(&stage->view, &stage->camera, &stage->pose);
   add_track_to_view(&stage->view, &stage->track, stage->car.position);
-  for (int i = 0; i < stage->scenery.count; ++i) {
-    add_billboard_to_view(&stage->view, &stage->scenery.items[i].billboard);
-  }
-  for (int i = 0; i < stage->traffic.count; ++i) {
-    billboard_t car = traffic_billboard(&stage->track, &stage->traffic.cars[i]);
-    add_billboard_to_view(&stage->view, &car);
-  }
+  add_scenery_and_traffic(stage, &stage->view);
   finish_road_view(&stage->view);
+
+  stage->mirror_pose = mirror_camera_pose(&stage->track, stage->car.position,
+                                          stage->car.x, stage->body.height);
+  begin_road_view(&stage->mirror_view, &stage->mirror_camera,
+                  &stage->mirror_pose);
+  add_track_behind_to_view(&stage->mirror_view, &stage->track,
+                           stage->car.position);
+  add_scenery_and_traffic(stage, &stage->mirror_view);
+  finish_road_view(&stage->mirror_view);
+  mirror_road_view(&stage->mirror_view);
+}
+
+static void render_mirror(driving_stage_ptr stage) {
+  SDL_Renderer* renderer = stage->graphics_context->renderer;
+  if (!renderer) {
+    return;
+  }
+  dashboard_state_t state = dashboard_state(&stage->car, &stage->body);
+  dashboard_layout_t layout =
+      dashboard_layout(stage->graphics_context->screen_width,
+                       stage->graphics_context->screen_height, &state);
+  view_area_t area = {layout.mirror_x - layout.mirror_width / 2,
+                      layout.mirror_y - layout.mirror_height / 2,
+                      layout.mirror_width, layout.mirror_height};
+  SDL_Rect clip = {area.x, area.y, area.width, area.height};
+  SDL_RenderSetClipRect(renderer, &clip);
+  render_backdrop_in(stage->graphics_context, &stage->road_renderer,
+                     &stage->mirror_view, area);
+  render_road_view_in(stage->graphics_context, &stage->road_renderer,
+                      &stage->mirror_view, area);
+  SDL_RenderSetClipRect(renderer, NULL);
+  render_mirror_frame(stage->graphics_context, &layout);
 }
 
 void render_driving_stage(driving_stage_ptr stage) {
   clear_frame(stage->graphics_context);
-  build_view(stage);
+  prepare_driving_stage_frame(stage);
   render_backdrop(stage->graphics_context, &stage->road_renderer, &stage->view);
   render_road_view(stage->graphics_context, &stage->road_renderer,
                    &stage->view);
+  render_mirror(stage);
   render_cockpit(stage->graphics_context, &stage->cockpit_renderer, &stage->car,
                  &stage->body, &stage->gear_lever);
   render_hud(stage);

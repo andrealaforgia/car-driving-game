@@ -16,6 +16,7 @@ typedef enum {
   BILLBOARD_BUSH,
   BILLBOARD_SIGN,
   BILLBOARD_CAR,
+  BILLBOARD_TRUCK,
   BILLBOARD_KINDS
 } billboard_kind_t;
 

@@ -878,6 +878,20 @@ static void check_layout_fits(int width, int height) {
   assert(layout.gate_y - layout.gate_height / 2 >= layout.panel_top);
   assert(layout.gate_y + layout.gate_height / 2 <= height);
   assert(layout.gate_width > 0 && layout.gate_height > 0);
+  assert(layout.dial_radius >= height * 12 / 100);
+  int gap_left = layout.wheel_x - layout.wheel_radius -
+                 (layout.speed_x + layout.dial_radius);
+  int gap_right = layout.rev_x - layout.dial_radius -
+                  (layout.wheel_x + layout.wheel_radius);
+  assert(gap_left > 0 && gap_left <= height * 3 / 100);
+  assert(gap_right > 0 && gap_right <= height * 3 / 100);
+  int gap_gate = layout.gate_x - layout.gate_width / 2 -
+                 (layout.rev_x + layout.dial_radius);
+  assert(gap_gate > 0 && gap_gate <= height * 3 / 100);
+  assert(layout.mirror_width > 0 && layout.mirror_height > 0);
+  assert(layout.mirror_x == width / 2);
+  assert(layout.mirror_y - layout.mirror_height / 2 >= 0);
+  assert(layout.mirror_y + layout.mirror_height / 2 < height / 5);
   assert(layout.panel_top >= height * 3 / 4);
   assert(layout.wheel_radius >= height * 29 / 100);
   assert(layout.wheel_y - layout.wheel_radius >= height * 55 / 100);
@@ -891,7 +905,9 @@ static void check_layout_fits(int width, int height) {
   assert(layout.speed_x - layout.dial_radius >= 0);
   assert(layout.rev_x + layout.dial_radius <= width);
   assert(layout.dial_y + layout.dial_radius <= height);
-  assert(layout.dial_y - layout.dial_radius >= layout.panel_top);
+  /* Instrument pods may rise a little above the band, like real ones. */
+  assert(layout.dial_y - layout.dial_radius >=
+         layout.panel_top - layout.dial_radius / 2);
 }
 
 static void dashboard_sits_low_and_leaves_the_road_visible(void) {
@@ -1111,6 +1127,56 @@ static road_view_t* view_for(const track_t* track, double position,
   add_track_to_view(&view, track, position);
   finish_road_view(&view);
   return &view;
+}
+
+static road_view_t* rear_view_for(const track_t* track, double position,
+                                  double car_x) {
+  static road_view_t view;
+  camera_t camera = create_camera(MIRROR_FIELD_OF_VIEW_DEGREES, 3.0);
+  camera_pose_t pose = mirror_camera_pose(track, position, car_x,
+                                          track_height_at(track, position));
+  begin_road_view(&view, &camera, &pose);
+  add_track_behind_to_view(&view, track, position);
+  finish_road_view(&view);
+  return &view;
+}
+
+static void rear_view_looks_back_down_the_road(void) {
+  track_t track = create_track(60);
+  add_straight(&track, 60);
+  road_view_t* rear = rear_view_for(&track, 30 * SEGMENT_LENGTH, 0.0);
+  assert(rear->polygon_count > 0);
+  int behind = 0, ahead = 0;
+  for (int i = 0; i < rear->polygon_count; ++i) {
+    if (rear->polygons[i].segment < 30) {
+      ++behind;
+    } else {
+      ++ahead;
+    }
+  }
+  assert(behind > 0 && ahead == 0);
+  camera_pose_t pose =
+      mirror_camera_pose(&track, 30 * SEGMENT_LENGTH, 0.0, 0.0);
+  assert(near(wrap_angle(pose.yaw - M_PI), 0.0));
+  destroy_track(&track);
+}
+
+static void mirror_shows_what_is_behind_on_the_same_side(void) {
+  track_t track = create_track(60);
+  add_straight(&track, 60);
+  billboard_t right_behind = {track_point_at(&track, 10 * SEGMENT_LENGTH, 1.2),
+                              600.0, 600.0, BILLBOARD_TREE, 0};
+  road_view_t* front = view_for(&track, 30 * SEGMENT_LENGTH, 0.0);
+  add_billboard_to_view(front, &right_behind);
+  assert(front->sprite_count == 0);
+  road_view_t* rear = rear_view_for(&track, 30 * SEGMENT_LENGTH, 0.0);
+  add_billboard_to_view(rear, &right_behind);
+  finish_road_view(rear);
+  assert(rear->sprite_count == 1);
+  assert(rear->sprites[0].x < 0.5);
+  mirror_road_view(rear);
+  assert(rear->sprites[0].x > 0.5);
+  destroy_track(&track);
 }
 
 static double polygon_centre_x(const view_polygon_t* polygon) {
@@ -1485,7 +1551,9 @@ static void traffic_is_spread_along_the_lanes(void) {
     const traffic_car_t* car = &traffic.cars[i];
     assert(car->position >= 0.0 && car->position < length);
     assert(fabs(car->lateral) <= 1.0 - CAR_HALF_WIDTH);
-    assert(car->speed >= TRAFFIC_MIN_SPEED && car->speed <= TRAFFIC_MAX_SPEED);
+    double slowest = car->truck ? TRAFFIC_TRUCK_MIN_SPEED : TRAFFIC_MIN_SPEED;
+    double fastest = car->truck ? TRAFFIC_TRUCK_MAX_SPEED : TRAFFIC_MAX_SPEED;
+    assert(car->speed >= slowest && car->speed <= fastest);
     assert(car->colour >= 0 && car->colour < BILLBOARD_VARIANTS);
     if (i > 0) {
       assert(car->position >
@@ -1521,9 +1589,9 @@ static void traffic_drives_on_and_wraps_around_the_lap(void) {
 
 static void traffic_keeps_its_distance_from_the_car_ahead(void) {
   double length = 100 * SEGMENT_LENGTH;
-  traffic_t traffic = {
-      {{1000.0, 0.0, TRAFFIC_MIN_SPEED, 0}, {0.0, 0.0, TRAFFIC_MAX_SPEED, 1}},
-      2};
+  traffic_t traffic = {{{1000.0, 0.0, TRAFFIC_MIN_SPEED, 0, false},
+                        {0.0, 0.0, TRAFFIC_MAX_SPEED, 1, false}},
+                       2};
   for (int step = 0; step < 240 * 10; ++step) {
     update_traffic(&traffic, 1.0 / 240, length, NULL);
     double gap = fmod(
@@ -1535,7 +1603,8 @@ static void traffic_keeps_its_distance_from_the_car_ahead(void) {
 
 static void running_into_traffic_slows_the_player_to_its_speed(void) {
   double length = 100 * SEGMENT_LENGTH;
-  traffic_t traffic = {{{10 * SEGMENT_LENGTH, 0.0, TRAFFIC_MIN_SPEED, 0}}, 1};
+  traffic_t traffic = {
+      {{10 * SEGMENT_LENGTH, 0.0, TRAFFIC_MIN_SPEED, 0, false}}, 1};
   car_t player = car_at_speed(CAR_MAX_SPEED);
   player.position = 10 * SEGMENT_LENGTH - TRAFFIC_CAR_LENGTH / 2.0;
   player.x = 0.1;
@@ -1556,13 +1625,55 @@ static void running_into_traffic_slows_the_player_to_its_speed(void) {
 static void traffic_billboards_sit_on_the_road_in_their_lane(void) {
   track_t track = create_track(40);
   add_straight(&track, 40);
-  traffic_car_t car = {5 * SEGMENT_LENGTH, -0.6, TRAFFIC_MIN_SPEED, 3};
+  traffic_car_t car = {5 * SEGMENT_LENGTH, -0.6, TRAFFIC_MIN_SPEED, 3, false};
   billboard_t billboard = traffic_billboard(&track, &car);
   assert(billboard.kind == BILLBOARD_CAR);
   assert(billboard.variant == 3);
   assert(
       near_vec(billboard.position, track_point_at(&track, car.position, -0.6)));
   assert(billboard.width > 0.0 && billboard.height > 0.0);
+  destroy_track(&track);
+}
+
+static void traffic_includes_slower_longer_trucks(void) {
+  double length = 400 * SEGMENT_LENGTH;
+  traffic_t traffic = create_traffic(7, length, 16);
+  int trucks = 0;
+  for (int i = 0; i < traffic.count; ++i) {
+    const traffic_car_t* vehicle = &traffic.cars[i];
+    if (vehicle->truck) {
+      ++trucks;
+      assert(vehicle->speed <= TRAFFIC_TRUCK_MAX_SPEED + 1e-9);
+      assert(vehicle->speed >= TRAFFIC_TRUCK_MIN_SPEED - 1e-9);
+      assert(near(traffic_vehicle_length(vehicle), TRAFFIC_TRUCK_LENGTH));
+      assert(near(traffic_vehicle_width(vehicle), TRAFFIC_TRUCK_WIDTH));
+    } else {
+      assert(near(traffic_vehicle_length(vehicle), TRAFFIC_CAR_LENGTH));
+      assert(near(traffic_vehicle_width(vehicle), TRAFFIC_CAR_WIDTH));
+    }
+  }
+  assert(trucks >= 3 && trucks < traffic.count);
+  assert(!traffic.cars[0].truck);
+}
+
+static void trucks_are_drawn_bigger_and_stop_the_car_further_back(void) {
+  track_t track = create_track(40);
+  add_straight(&track, 40);
+  traffic_car_t car = {5 * SEGMENT_LENGTH, 0.0, TRAFFIC_MIN_SPEED, 1, false};
+  traffic_car_t truck = {5 * SEGMENT_LENGTH, 0.0, TRAFFIC_MIN_SPEED, 1, true};
+  billboard_t car_board = traffic_billboard(&track, &car);
+  billboard_t truck_board = traffic_billboard(&track, &truck);
+  assert(truck_board.kind == BILLBOARD_TRUCK);
+  assert(truck_board.width > car_board.width * 1.2);
+  assert(truck_board.height > car_board.height * 1.8);
+  assert(billboard_variants(BILLBOARD_TRUCK) >= 2);
+  traffic_t traffic;
+  traffic.count = 1;
+  traffic.cars[0] = truck;
+  car_t player = car_at_speed(CAR_MAX_SPEED);
+  player.position = truck.position - 100.0;
+  assert(hit_traffic(&traffic, &player, track.length));
+  assert(near(player.position, truck.position - TRAFFIC_TRUCK_LENGTH));
   destroy_track(&track);
 }
 
@@ -1941,6 +2052,17 @@ static void stage_stops_the_car_behind_traffic(void) {
   destroy_driving_stage(&stage);
 }
 
+static void stage_shows_traffic_behind_in_the_mirror(void) {
+  driving_stage_t stage = stage_with_dummy_screen();
+  const traffic_car_t* behind = &stage.traffic.cars[0];
+  stage.car.position = behind->position + 3 * TRAFFIC_CAR_LENGTH;
+  stage.car.x = behind->lateral;
+  prepare_driving_stage_frame(&stage);
+  assert(stage.mirror_view.sprite_count > 0);
+  assert(stage.mirror_view.polygon_count > 0);
+  destroy_driving_stage(&stage);
+}
+
 static void stage_crashes_the_car_into_a_tree(void) {
   driving_stage_t stage = stage_with_dummy_screen();
   const scenery_item_t* tree = NULL;
@@ -2069,6 +2191,8 @@ int main(int argc, char* argv[]) {
       {"view", road_climbing_ahead_rises_on_screen_and_so_does_the_horizon},
       {"view", billboards_stand_on_the_ground_and_sort_with_the_road},
       {"view", a_closed_circuit_is_drawn_only_within_the_draw_distance},
+      {"view", rear_view_looks_back_down_the_road},
+      {"view", mirror_shows_what_is_behind_on_the_same_side},
       {"scenery", scenery_stands_beside_the_road_on_both_sides},
       {"scenery", scenery_depends_only_on_the_seed},
       {"scenery", scenery_blocks_a_car_that_drives_into_it},
@@ -2077,6 +2201,8 @@ int main(int argc, char* argv[]) {
       {"traffic", traffic_keeps_its_distance_from_the_car_ahead},
       {"traffic", running_into_traffic_slows_the_player_to_its_speed},
       {"traffic", traffic_billboards_sit_on_the_road_in_their_lane},
+      {"traffic", traffic_includes_slower_longer_trucks},
+      {"traffic", trucks_are_drawn_bigger_and_stop_the_car_further_back},
       {"texture", asphalt_is_grey_noise_around_the_base_colour},
       {"texture", asphalt_is_deterministic_for_a_seed},
       {"note", engine_revs_climb_through_each_gear_and_drop_at_the_change},
@@ -2099,6 +2225,7 @@ int main(int argc, char* argv[]) {
       {"stage", stage_uses_the_slope_under_the_car},
       {"stage", stage_track_comes_from_the_seed},
       {"stage", stage_stops_the_car_behind_traffic},
+      {"stage", stage_shows_traffic_behind_in_the_mirror},
       {"stage", stage_crashes_the_car_into_a_tree},
       {"stage", stage_counts_laps},
       {"stage", stage_releases_everything},

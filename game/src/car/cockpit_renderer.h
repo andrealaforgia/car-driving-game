@@ -11,6 +11,7 @@
 
 #include "car.h"
 #include "car_body.h"
+#include "dashboard.h"
 #include "gear_lever.h"
 #include "graphics_context.h"
 #include "texture.h"
@@ -27,6 +28,10 @@ typedef struct {
 cockpit_renderer_t init_cockpit_renderer(
     const graphics_context_ptr graphics_context);
 void destroy_cockpit_renderer(cockpit_renderer_t* renderer);
+
+/* The housing around the rear-view mirror, over the mirror's picture. */
+void render_mirror_frame(const graphics_context_ptr graphics_context,
+                         const dashboard_layout_t* layout);
 
 void render_cockpit(const graphics_context_ptr graphics_context,
                     const cockpit_renderer_t* renderer, const car_t* car,

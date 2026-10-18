@@ -12,10 +12,12 @@
 #define SWAY_PIXELS 9.0
 
 #define PANEL_TOP_FRACTION 0.78
-#define DIAL_RADIUS_FRACTION 0.105
-#define DIAL_DROP_FRACTION 0.11
-#define SPEED_X_FRACTION 0.22
-#define REV_X_FRACTION 0.78
+#define DIAL_RADIUS_FRACTION 0.125
+#define DIAL_DROP_FRACTION 0.09
+#define GAP_FRACTION 0.02
+#define MIRROR_HEIGHT_FRACTION 0.11
+#define MIRROR_ASPECT 3
+#define MIRROR_TOP_FRACTION 0.02
 #define WHEEL_RADIUS_FRACTION 0.30
 #define WHEEL_DROP_FRACTION 0.12
 #define GATE_WIDTH_FRACTION 0.14
@@ -55,20 +57,27 @@ dashboard_layout_t dashboard_layout(int width, int height,
   double unit = height / 900.0;
   int bob = (int)lround(state->bob * unit);
   int sway = (int)lround(state->sway * unit);
+  int gap = (int)lround(height * GAP_FRACTION);
   dashboard_layout_t layout;
   layout.panel_top = (int)lround(height * PANEL_TOP_FRACTION) + bob;
-  layout.dial_radius = (int)lround(height * DIAL_RADIUS_FRACTION);
-  layout.dial_y = layout.panel_top + (int)lround(height * DIAL_DROP_FRACTION);
-  layout.speed_x = (int)lround(width * SPEED_X_FRACTION) + sway;
-  layout.rev_x = (int)lround(width * REV_X_FRACTION) + sway;
   layout.wheel_x = width / 2 + sway;
   layout.wheel_y = layout.panel_top + (int)lround(height * WHEEL_DROP_FRACTION);
   layout.wheel_radius = (int)lround(height * WHEEL_RADIUS_FRACTION);
-  int rev_edge = layout.rev_x + layout.dial_radius;
-  layout.gate_x = (rev_edge + width + sway) / 2;
-  layout.gate_y = layout.dial_y;
+  layout.dial_radius = (int)lround(height * DIAL_RADIUS_FRACTION);
+  layout.dial_y = layout.panel_top + (int)lround(height * DIAL_DROP_FRACTION);
+  int reach = layout.wheel_radius + gap + layout.dial_radius;
+  layout.speed_x = layout.wheel_x - reach;
+  layout.rev_x = layout.wheel_x + reach;
   layout.gate_width = (int)lround(height * GATE_WIDTH_FRACTION);
   layout.gate_height = (int)lround(height * GATE_HEIGHT_FRACTION);
+  layout.gate_x =
+      layout.rev_x + layout.dial_radius + gap + layout.gate_width / 2;
+  layout.gate_y = layout.dial_y;
+  layout.mirror_height = (int)lround(height * MIRROR_HEIGHT_FRACTION);
+  layout.mirror_width = layout.mirror_height * MIRROR_ASPECT;
+  layout.mirror_x = width / 2 + sway;
+  layout.mirror_y = (int)lround(height * MIRROR_TOP_FRACTION) +
+                    layout.mirror_height / 2 + bob;
   return layout;
 }
 
