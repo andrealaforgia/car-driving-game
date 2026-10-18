@@ -1,0 +1,10 @@
+car-driving
+render_snapshot
+render_sound
+snapshot.bmp
+engine.wav
+*.o
+*.d
+*.dSYM
+**/.DS_Store
+__pycache__/
