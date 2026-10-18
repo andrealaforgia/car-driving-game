@@ -580,7 +580,7 @@ static void steering_is_measured_rather_than_twitchy(void) {
   drive(&car, RIGHT, 0.1, FLAT);
   assert(car.lateral_speed < 0.5 * CAR_STEERING_RATE);
   drive(&car, RIGHT, 0.9, FLAT);
-  assert(car.x > 0.8 && car.x < 1.3);
+  assert(car.x > 0.7 && car.x < 1.3);
 }
 
 static void reverse_backs_the_car_up_slowly_from_rest(void) {
@@ -607,6 +607,50 @@ static void steering_in_reverse_moves_the_car_the_same_way(void) {
   car_input_t reverse_right = {false, false, false, true, true};
   drive(&car, reverse_right, 1.0, FLAT);
   assert(car.x > 0.0);
+}
+
+static void the_engine_pulls_hardest_low_down_and_tails_off(void) {
+  car_t launch = car_at_speed(CAR_MAX_SPEED * 0.05);
+  car_t fast = car_at_speed(CAR_MAX_SPEED * 0.7);
+  drive(&launch, THROTTLE, 0.01, FLAT);
+  drive(&fast, THROTTLE, 0.01, FLAT);
+  assert(launch.acceleration > 1.5 * CAR_ENGINE_ACCELERATION);
+  assert(launch.acceleration > 1.8 * fast.acceleration);
+  assert(engine_pull(1, 0.75) > engine_pull(1, 0.0));
+  assert(engine_pull(1, 0.5) > engine_pull(ENGINE_GEARS - 1, 0.5));
+  int top_gear = engine_gear(CAR_MAX_SPEED);
+  assert(near(engine_pull(top_gear, engine_rpm_fraction(CAR_MAX_SPEED)), 1.0));
+}
+
+static void lifting_off_in_gear_slows_the_car_beyond_drag(void) {
+  car_t car = car_at_speed(CAR_MAX_SPEED * 0.5);
+  drive(&car, NO_INPUT, 0.01, FLAT);
+  double drag = CAR_DRAG_COEFFICIENT * pow(CAR_MAX_SPEED * 0.5, 2.0);
+  double rolling = -CAR_STATIC_FRICTION - CAR_ROLLING_RESISTANCE * 0.5;
+  assert(-car.acceleration > 1.3 * (drag + rolling));
+}
+
+static void steering_gets_heavier_with_speed(void) {
+  car_t half = car_at_speed(CAR_MAX_SPEED / 2);
+  car_t full = car_at_speed(CAR_MAX_SPEED);
+  drive(&half, RIGHT, 1.0, FLAT);
+  drive(&full, RIGHT, 1.0, FLAT);
+  assert(full.x > half.x && full.x < 1.7 * half.x);
+}
+
+static void accelerating_hard_through_a_bend_costs_front_grip(void) {
+  car_t coasting = car_at_speed(CAR_MAX_SPEED / 2);
+  car_t powering = car_at_speed(CAR_MAX_SPEED / 2);
+  car_input_t throttle_right = {true, false, false, true, false};
+  /* Turn-in: the first tenth of a second, before speeds diverge. */
+  drive(&coasting, RIGHT, 0.1, FLAT);
+  drive(&powering, throttle_right, 0.1, FLAT);
+  assert(powering.speed > coasting.speed);
+  assert(powering.lateral_speed < 0.8 * coasting.lateral_speed);
+  car_t braking = car_at_speed(CAR_MAX_SPEED / 2);
+  car_input_t brake_right = {false, true, false, true, false};
+  drive(&braking, brake_right, 0.1, FLAT);
+  assert(braking.lateral_speed < 0.6 * coasting.lateral_speed);
 }
 
 static void car_cannot_leave_the_verge(void) {
@@ -2205,6 +2249,10 @@ int main(int argc, char* argv[]) {
       {"car", reverse_backs_the_car_up_slowly_from_rest},
       {"car", reverse_brakes_a_moving_car_before_backing_up},
       {"car", steering_in_reverse_moves_the_car_the_same_way},
+      {"car", the_engine_pulls_hardest_low_down_and_tails_off},
+      {"car", lifting_off_in_gear_slows_the_car_beyond_drag},
+      {"car", steering_gets_heavier_with_speed},
+      {"car", accelerating_hard_through_a_bend_costs_front_grip},
       {"car", car_cannot_leave_the_verge},
       {"car", bends_push_harder_at_higher_speed},
       {"car", grass_slows_the_car_and_loosens_its_grip},

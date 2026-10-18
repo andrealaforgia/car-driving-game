@@ -20,6 +20,10 @@
 /* 0 at rest, 1 at the red line; drops at each gear change. */
 double engine_rpm_fraction(double speed);
 int engine_gear(double speed);
+/* How hard the engine pushes in a gear at some revs, as a multiple of
+ * CAR_ENGINE_ACCELERATION: low gears pull harder, torque peaks below the
+ * red line, and it is exactly 1 at the top speed on the flat. */
+double engine_pull(int gear, double rpm_fraction);
 
 double engine_volume(bool accelerate, double rpm_fraction);
 double skid_volume(bool braking, double speed);

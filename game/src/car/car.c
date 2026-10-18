@@ -2,6 +2,7 @@
 
 #include <math.h>
 
+#include "engine_note.h"
 #include "game_constants.h"
 
 car_t create_car(void) {
@@ -29,15 +30,18 @@ static double longitudinal_acceleration(const car_t* car, car_input_t input,
   if (road.airborne) {
     return acceleration;
   }
+  double rpm = engine_rpm_fraction(car->speed);
   if (input.accelerate) {
-    acceleration += CAR_ENGINE_ACCELERATION;
+    acceleration +=
+        CAR_ENGINE_ACCELERATION * engine_pull(engine_gear(car->speed), rpm);
   } else if (input.brake || (input.reverse && car->speed > 0.0)) {
     acceleration += CAR_BRAKING_DECELERATION;
   } else if (input.reverse) {
     acceleration -= CAR_REVERSE_ACCELERATION;
   } else {
-    acceleration += CAR_STATIC_FRICTION * direction +
-                    CAR_ROLLING_RESISTANCE * car->speed / CAR_MAX_SPEED;
+    acceleration +=
+        (CAR_STATIC_FRICTION - CAR_ENGINE_BRAKING * rpm) * direction +
+        CAR_ROLLING_RESISTANCE * car->speed / CAR_MAX_SPEED;
   }
   if (is_car_off_road(car) && fabs(car->speed) > CAR_OFF_ROAD_LIMIT) {
     acceleration += CAR_OFF_ROAD_DECELERATION * direction;
@@ -62,19 +66,29 @@ static void change_speed(car_t* car, car_input_t input, double seconds,
 static void steer(car_t* car, car_input_t input, double seconds,
                   road_conditions_t road) {
   double speed_fraction = fabs(car->speed) / CAR_MAX_SPEED;
-  double target = 0.0;
-  if (input.left) {
-    target -= CAR_STEERING_RATE * speed_fraction;
-  }
-  if (input.right) {
-    target += CAR_STEERING_RATE * speed_fraction;
-  }
+  double lock = (input.right ? 1.0 : 0.0) - (input.left ? 1.0 : 0.0);
+  /* Full lock moves the car less per unit of speed as speed rises. */
+  double target = lock * CAR_STEERING_RATE * speed_fraction /
+                  (1.0 + CAR_STEERING_WEIGHT * speed_fraction);
   target -= road.curve * speed_fraction * speed_fraction * CAR_CENTRIFUGAL;
-  double grip = road.airborne          ? 0.0
-                : is_car_off_road(car) ? CAR_GRIP_ON_GRASS
-                                       : CAR_GRIP_ON_ROAD;
-  car->lateral_speed +=
-      (target - car->lateral_speed) * fmin(1.0, grip * seconds);
+  bool off_road = is_car_off_road(car);
+  double grip = road.airborne ? 0.0
+                : off_road    ? CAR_GRIP_ON_GRASS
+                              : CAR_GRIP_ON_ROAD;
+  /* Braking or accelerating hard shifts weight off the tyres' sideways
+   * work, so the car answers the wheel more slowly; drag and friction do
+   * not count, only what the driver asks for. */
+  double driving = input.accelerate
+                       ? CAR_ENGINE_ACCELERATION *
+                             engine_pull(engine_gear(car->speed),
+                                         engine_rpm_fraction(car->speed))
+                   : input.brake || input.reverse ? -CAR_BRAKING_DECELERATION
+                                                  : 0.0;
+  double demand = clamp(driving / CAR_LONGITUDINAL_LIMIT, 0.0, 1.0);
+  double most = (off_road ? CAR_LATERAL_GRIP_ON_GRASS : CAR_LATERAL_GRIP) *
+                (1.0 - CAR_WEIGHT_TRANSFER * demand) * seconds;
+  double change = (target - car->lateral_speed) * fmin(1.0, grip * seconds);
+  car->lateral_speed += clamp(change, -most, most);
   car->x += car->lateral_speed * seconds;
   if (fabs(car->x) >= CAR_MAX_X) {
     car->x = clamp(car->x, -CAR_MAX_X, CAR_MAX_X);

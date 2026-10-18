@@ -96,10 +96,16 @@ and the hills on the horizon are generated noise.
 Top speed on the flat is where engine force balances air drag, so
 acceleration fades as you get faster. Gravity acts along the slope: climbs
 cost speed, descents give it back and can push you past the flat top speed.
-Steering builds lateral speed through the tyres' grip rather than moving the
-car instantly, and bends push outwards with the square of speed, so hard
-bends have to be taken slower. The grass has far less grip and brakes the
-car hard.
+The engine has a torque curve and seven gears: low gears pull hard, the
+pull fades past the torque peak in each gear, and lifting off gives
+engine braking that grows with the revs. Steering builds lateral speed
+through the tyres' grip rather than moving the car instantly, and goes
+heavier as speed rises. The tyres can only change the car's sideways
+speed so fast, and hard braking or acceleration takes some of that away,
+so turning in under power or on the brakes is lazier than turning in on
+a steady throttle. Bends push outwards with the square of speed, so hard
+bends have to be taken slower. The grass has far less grip and brakes
+the car hard.
 
 ## Checks
 

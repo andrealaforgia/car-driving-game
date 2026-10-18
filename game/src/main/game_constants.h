@@ -37,6 +37,10 @@
 #define CAR_STATIC_FRICTION (-CAR_MAX_SPEED / 80.0)
 #define CAR_ROLLING_RESISTANCE (-CAR_MAX_SPEED / 10.0)
 #define CAR_BRAKING_DECELERATION (-CAR_MAX_SPEED / 1.5)
+/* Engine braking on the overrun, at the red line. */
+#define CAR_ENGINE_BRAKING (CAR_MAX_SPEED / 12.0)
+/* The hardest the car can accelerate or brake, for weight transfer. */
+#define CAR_LONGITUDINAL_LIMIT (CAR_ENGINE_ACCELERATION * 2.5)
 /* Reverse gear: gentle, and capped well below forward speeds. */
 #define CAR_REVERSE_SPEED (CAR_MAX_SPEED * 0.15)
 #define CAR_REVERSE_ACCELERATION (CAR_ENGINE_ACCELERATION * 0.5)
@@ -55,11 +59,18 @@
 /* Hitting something solid: the speed that is left, and the jolt. */
 #define CRASH_SPEED_FACTOR 0.2
 #define CRASH_JOLT 1.0
-/* Lateral speed in road widths per second at top speed, and how quickly
- * the car reaches it (per second). */
-#define CAR_STEERING_RATE 1.4
+/* Lateral speed in road widths per second at full lock, before the
+ * steering goes heavy with speed, and how quickly the car reaches it
+ * (per second). */
+#define CAR_STEERING_RATE 1.8
+#define CAR_STEERING_WEIGHT 0.6
 #define CAR_GRIP_ON_ROAD 5.0
 #define CAR_GRIP_ON_GRASS 2.0
+/* The most the tyres can change the lateral speed in a second, and how
+ * much of that is lost at full braking or acceleration. */
+#define CAR_LATERAL_GRIP 3.2
+#define CAR_LATERAL_GRIP_ON_GRASS 1.6
+#define CAR_WEIGHT_TRANSFER 0.7
 #define CAR_CENTRIFUGAL 0.35
 
 /* Car body: flight over crests, suspension, pitch and roll. Suspension

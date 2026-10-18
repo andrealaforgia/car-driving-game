@@ -44,6 +44,34 @@ int engine_gear(double speed) {
   return ENGINE_GEARS;
 }
 
+#define TORQUE_PEAK_RPM 0.75
+#define TORQUE_AT_IDLE 0.7
+#define TORQUE_AT_RED_LINE 0.75
+#define GEAR_RATIO_POWER 0.35
+
+static double torque_curve(double rpm) {
+  rpm = rpm < 0.0 ? 0.0 : (rpm > 1.0 ? 1.0 : rpm);
+  if (rpm <= TORQUE_PEAK_RPM) {
+    double shortfall = (TORQUE_PEAK_RPM - rpm) / TORQUE_PEAK_RPM;
+    return 1.0 - (1.0 - TORQUE_AT_IDLE) * shortfall * shortfall;
+  }
+  double past = (rpm - TORQUE_PEAK_RPM) / (1.0 - TORQUE_PEAK_RPM);
+  return 1.0 - (1.0 - TORQUE_AT_RED_LINE) * past;
+}
+
+/* Relative to the gear the car tops out in on the flat. */
+static double gear_ratio(int gear) {
+  int top_gear = engine_gear(CAR_MAX_SPEED);
+  gear = gear < 1 ? 1 : (gear > ENGINE_GEARS ? ENGINE_GEARS : gear);
+  return pow(GEAR_TOP[top_gear - 1] / GEAR_TOP[gear - 1], GEAR_RATIO_POWER);
+}
+
+double engine_pull(int gear, double rpm_fraction) {
+  double at_top_speed = gear_ratio(engine_gear(CAR_MAX_SPEED)) *
+                        torque_curve(engine_rpm_fraction(CAR_MAX_SPEED));
+  return gear_ratio(gear) * torque_curve(rpm_fraction) / at_top_speed;
+}
+
 double engine_volume(bool accelerate, double rpm_fraction) {
   double volume = 0.35 + (accelerate ? 0.35 : 0.0) + 0.3 * rpm_fraction;
   return volume > 1.0 ? 1.0 : volume;
