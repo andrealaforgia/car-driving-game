@@ -121,10 +121,11 @@ void update_car_audio(car_audio_t* audio, const car_t* car, car_input_t input) {
   }
   double rpm = engine_rpm_fraction(car->speed);
   SDL_AtomicSet(&audio->rpm_milli, (int)(rpm * 1000.0));
-  SDL_AtomicSet(&audio->throttle, input.accelerate ? 1 : 0);
+  bool throttle = input.accelerate || input.reverse;
+  SDL_AtomicSet(&audio->throttle, throttle ? 1 : 0);
   SDL_AtomicSet(&audio->volume_milli,
-                (int)(engine_volume(input.accelerate, rpm) *
-                      audio->master_volume / MIX_MAX_VOLUME * 1000.0));
+                (int)(engine_volume(throttle, rpm) * audio->master_volume /
+                      MIX_MAX_VOLUME * 1000.0));
   if (!audio->hooked) {
     Mix_HookMusic(render_engine, audio);
     audio->hooked = true;

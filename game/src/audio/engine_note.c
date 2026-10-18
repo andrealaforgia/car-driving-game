@@ -16,7 +16,7 @@ static const double GEAR_TOP[ENGINE_GEARS] = {0.12, 0.22, 0.34, 0.48,
                                               0.64, 0.82, 1.0};
 
 double engine_rpm_fraction(double speed) {
-  double fraction = speed / CAR_SPEED_LIMIT;
+  double fraction = fabs(speed) / CAR_SPEED_LIMIT;
   double low = 0.0;
   for (int gear = 0; gear < ENGINE_GEARS; ++gear) {
     double top = GEAR_TOP[gear];
@@ -32,6 +32,9 @@ double engine_rpm_fraction(double speed) {
 }
 
 int engine_gear(double speed) {
+  if (speed < 0.0) {
+    return GEAR_REVERSE;
+  }
   double fraction = speed / CAR_SPEED_LIMIT;
   for (int gear = 0; gear < ENGINE_GEARS - 1; ++gear) {
     if (fraction <= GEAR_TOP[gear]) {
@@ -47,7 +50,7 @@ double engine_volume(bool accelerate, double rpm_fraction) {
 }
 
 double skid_volume(bool braking, double speed) {
-  double fraction = speed / CAR_MAX_SPEED;
+  double fraction = fabs(speed) / CAR_MAX_SPEED;
   if (!braking || fraction < 0.15) {
     return 0.0;
   }
@@ -55,7 +58,7 @@ double skid_volume(bool braking, double speed) {
 }
 
 double grass_volume(bool off_road, double speed) {
-  double fraction = speed / CAR_MAX_SPEED;
+  double fraction = fabs(speed) / CAR_MAX_SPEED;
   if (!off_road || fraction < 0.05) {
     return 0.0;
   }

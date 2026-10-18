@@ -37,6 +37,9 @@
 #define CAR_STATIC_FRICTION (-CAR_MAX_SPEED / 80.0)
 #define CAR_ROLLING_RESISTANCE (-CAR_MAX_SPEED / 10.0)
 #define CAR_BRAKING_DECELERATION (-CAR_MAX_SPEED / 1.5)
+/* Reverse gear: gentle, and capped well below forward speeds. */
+#define CAR_REVERSE_SPEED (CAR_MAX_SPEED * 0.15)
+#define CAR_REVERSE_ACCELERATION (CAR_ENGINE_ACCELERATION * 0.5)
 /* Gravity: the pull along the road's slope is light enough that flat out
  * up the steepest hill keeps most of the top speed, while a parked car
  * still rolls down; the body falls faster than that when airborne. */

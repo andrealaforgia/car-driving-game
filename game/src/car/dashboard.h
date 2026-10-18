@@ -29,11 +29,12 @@ typedef struct {
   double wheel_angle;  /* positive turns clockwise, steering right */
   double bob;          /* pixels at 900 lines, positive moves down */
   double sway;         /* pixels at 900 lines, positive moves right */
-  int gear;            /* 1 to ENGINE_GEARS */
+  int gear;            /* 1 to ENGINE_GEARS, or GEAR_REVERSE */
 } dashboard_state_t;
 
 /* The gear lever's slot in an H-pattern gate: odd gears along the top
- * row, even gears along the bottom, two gears to a column. */
+ * row, even gears along the bottom, two gears to a column, and reverse
+ * at the bottom of the last column. */
 #define GEAR_GATE_COLUMNS ((ENGINE_GEARS + 1) / 2)
 
 typedef struct {
@@ -45,7 +46,7 @@ gear_slot_t gear_gate_slot(int gear);
 
 dashboard_state_t dashboard_state(const car_t* car, const car_body_t* body);
 
-/* The speed as the driver reads it, never below zero, and as text such
+/* The speed as the driver reads it, forwards or backwards, and as text such
  * as "76 MPH" (the HUD font has capitals and digits only). */
 double speed_in_mph(double speed);
 void format_speed(double speed, char* text, size_t size);

@@ -196,10 +196,10 @@ static void draw_dial(const graphics_context_ptr graphics_context,
 static void engrave_gear_numbers(const graphics_context_ptr graphics_context,
                                  const SDL_Rect* plate, int gear) {
   int scale = plate->h / 70 > 0 ? plate->h / 70 : 1;
-  for (int number = 1; number <= ENGINE_GEARS; ++number) {
+  for (int number = GEAR_REVERSE; number <= ENGINE_GEARS; ++number) {
     gear_slot_t slot = gear_gate_slot(number);
     char text[16];
-    snprintf(text, sizeof text, "%d", number);
+    snprintf(text, sizeof text, number == GEAR_REVERSE ? "R" : "%d", number);
     text_dimensions_t size = calculate_text_dimensions(text, scale);
     int x =
         plate->x + (int)(gate_slot_x(slot.column) * plate->w) - size.width / 2;

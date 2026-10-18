@@ -22,7 +22,8 @@ static double wrap_position(double position, double track_length) {
 
 static double longitudinal_acceleration(const car_t* car, car_input_t input,
                                         road_conditions_t road) {
-  double drag = CAR_DRAG_COEFFICIENT * car->speed * car->speed;
+  double direction = car->speed < 0.0 ? -1.0 : 1.0;
+  double drag = CAR_DRAG_COEFFICIENT * car->speed * fabs(car->speed);
   double gravity = -CAR_GRAVITY * road.slope;
   double acceleration = gravity - drag;
   if (road.airborne) {
@@ -30,14 +31,16 @@ static double longitudinal_acceleration(const car_t* car, car_input_t input,
   }
   if (input.accelerate) {
     acceleration += CAR_ENGINE_ACCELERATION;
-  } else if (input.brake) {
+  } else if (input.brake || (input.reverse && car->speed > 0.0)) {
     acceleration += CAR_BRAKING_DECELERATION;
+  } else if (input.reverse) {
+    acceleration -= CAR_REVERSE_ACCELERATION;
   } else {
-    acceleration += CAR_STATIC_FRICTION +
+    acceleration += CAR_STATIC_FRICTION * direction +
                     CAR_ROLLING_RESISTANCE * car->speed / CAR_MAX_SPEED;
   }
-  if (is_car_off_road(car) && car->speed > CAR_OFF_ROAD_LIMIT) {
-    acceleration += CAR_OFF_ROAD_DECELERATION;
+  if (is_car_off_road(car) && fabs(car->speed) > CAR_OFF_ROAD_LIMIT) {
+    acceleration += CAR_OFF_ROAD_DECELERATION * direction;
   }
   return acceleration;
 }
@@ -45,17 +48,20 @@ static double longitudinal_acceleration(const car_t* car, car_input_t input,
 static void change_speed(car_t* car, car_input_t input, double seconds,
                          road_conditions_t road) {
   double was_above_off_road_limit = car->speed > CAR_OFF_ROAD_LIMIT;
+  bool was_reversing = car->speed < 0.0;
   car->acceleration = longitudinal_acceleration(car, input, road);
   car->speed += car->acceleration * seconds;
   if (is_car_off_road(car) && was_above_off_road_limit) {
     car->speed = fmax(car->speed, CAR_OFF_ROAD_LIMIT);
   }
-  car->speed = clamp(car->speed, 0.0, CAR_SPEED_LIMIT);
+  /* Only reverse gear takes the car below a standstill. */
+  double slowest = input.reverse || was_reversing ? -CAR_REVERSE_SPEED : 0.0;
+  car->speed = clamp(car->speed, slowest, CAR_SPEED_LIMIT);
 }
 
 static void steer(car_t* car, car_input_t input, double seconds,
                   road_conditions_t road) {
-  double speed_fraction = car->speed / CAR_MAX_SPEED;
+  double speed_fraction = fabs(car->speed) / CAR_MAX_SPEED;
   double target = 0.0;
   if (input.left) {
     target -= CAR_STEERING_RATE * speed_fraction;

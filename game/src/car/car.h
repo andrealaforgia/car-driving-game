@@ -20,6 +20,7 @@ typedef struct {
   bool brake;
   bool left;
   bool right;
+  bool reverse; /* brakes while moving forward, then backs up */
 } car_input_t;
 
 typedef struct {

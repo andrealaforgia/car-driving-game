@@ -55,7 +55,7 @@ bool init_driving_stage(driving_stage_ptr stage,
   if (graphics_context->renderer) {
     stage->font = load_arcade_font(graphics_context);
   }
-  stage->last_input = (car_input_t){false, false, false, false};
+  stage->last_input = (car_input_t){false, false, false, false, false};
   stage->simulation_accumulator = 0.0;
   stage->show_fps = show_fps;
   stage->muted = false;
@@ -206,7 +206,12 @@ static void render_hud(driving_stage_ptr stage) {
       &stage->font, stage->graphics_context, text,
       (stage->graphics_context->screen_width - speed_width) / 2, under_mirror,
       FONT_COLOR_WHITE, speed_scale);
-  snprintf(text, sizeof text, "GEAR %d", engine_gear(stage->car.speed));
+  int gear = engine_gear(stage->car.speed);
+  if (gear == GEAR_REVERSE) {
+    snprintf(text, sizeof text, "GEAR R");
+  } else {
+    snprintf(text, sizeof text, "GEAR %d", gear);
+  }
   write_right_aligned(stage, text, 10, scale);
   snprintf(text, sizeof text, "LAP %d ", stage->lap_timer.laps + 1);
   write_lap_time(stage, text, stage->lap_timer.current, 10 + 12 * scale, scale);
@@ -308,7 +313,8 @@ void run_driving_stage(driving_stage_ptr stage) {
     car_input_t input = {.accelerate = is_up_key_held(stage->keyboard),
                          .brake = is_down_key_held(stage->keyboard),
                          .left = is_left_key_held(stage->keyboard),
-                         .right = is_right_key_held(stage->keyboard)};
+                         .right = is_right_key_held(stage->keyboard),
+                         .reverse = stage->keyboard->keys[SDL_SCANCODE_R] != 0};
     advance_driving_stage(stage, input, delta_time);
     if (stage->audio) {
       update_car_audio(stage->audio, &stage->car, input);

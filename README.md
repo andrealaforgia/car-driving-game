@@ -51,7 +51,7 @@ candidates that break the limits are rolled again.
 
 ## Controls
 
-- **Up** accelerate, **Down** brake, **Left / Right** steer
+- **Up** accelerate, **Down** brake, **R** reverse (brakes first, then backs up), **Left / Right** steer
 - **S** mute, **F11** toggle fullscreen, **ESC** quit
 
 ## What you see and hear

@@ -461,11 +461,12 @@ static void a_straddling_polygon_is_cut_along_the_near_plane(void) {
 
 /* ---- car ---- */
 
-static const car_input_t NO_INPUT = {false, false, false, false};
-static const car_input_t THROTTLE = {true, false, false, false};
-static const car_input_t BRAKE = {false, true, false, false};
-static const car_input_t LEFT = {false, false, true, false};
-static const car_input_t RIGHT = {false, false, false, true};
+static const car_input_t NO_INPUT = {false, false, false, false, false};
+static const car_input_t THROTTLE = {true, false, false, false, false};
+static const car_input_t BRAKE = {false, true, false, false, false};
+static const car_input_t LEFT = {false, false, true, false, false};
+static const car_input_t RIGHT = {false, false, false, true, false};
+static const car_input_t REVERSE = {false, false, false, false, true};
 static const road_conditions_t FLAT = {0.0, 0.0, false};
 
 static void drive(car_t* car, car_input_t input, double seconds,
@@ -582,6 +583,32 @@ static void steering_is_measured_rather_than_twitchy(void) {
   assert(car.x > 0.8 && car.x < 1.3);
 }
 
+static void reverse_backs_the_car_up_slowly_from_rest(void) {
+  car_t car = create_car();
+  car.position = 5000.0;
+  drive(&car, REVERSE, 3.0, FLAT);
+  assert(car.speed < 0.0 && car.speed >= -CAR_REVERSE_SPEED - 1e-9);
+  assert(car.position < 5000.0);
+  drive(&car, NO_INPUT, 60.0, FLAT);
+  assert(near(car.speed, 0.0));
+}
+
+static void reverse_brakes_a_moving_car_before_backing_up(void) {
+  car_t car = car_at_speed(CAR_MAX_SPEED);
+  drive(&car, REVERSE, 0.5, FLAT);
+  assert(car.speed > 0.0 && car.speed < 0.8 * CAR_MAX_SPEED);
+  drive(&car, REVERSE, 10.0, FLAT);
+  assert(car.speed < 0.0);
+}
+
+static void steering_in_reverse_moves_the_car_the_same_way(void) {
+  car_t car = create_car();
+  drive(&car, REVERSE, 3.0, FLAT);
+  car_input_t reverse_right = {false, false, false, true, true};
+  drive(&car, reverse_right, 1.0, FLAT);
+  assert(car.x > 0.0);
+}
+
 static void car_cannot_leave_the_verge(void) {
   car_t car = car_at_speed(CAR_MAX_SPEED);
   drive(&car, RIGHT, 20.0, FLAT);
@@ -628,7 +655,7 @@ static void an_airborne_car_neither_drives_nor_steers(void) {
   double speed_before = car.speed;
   drive(&car, THROTTLE, 0.5, in_the_air);
   assert(car.speed < speed_before);
-  car_input_t throttle_and_left = {true, false, true, false};
+  car_input_t throttle_and_left = {true, false, true, false, false};
   drive(&car, throttle_and_left, 0.5, in_the_air);
   assert(near(car.x, 0.0));
 }
@@ -869,6 +896,22 @@ static void gear_lever_sits_in_the_h_pattern_slot_of_the_gear(void) {
   assert(state.gear == engine_gear(car.speed));
 }
 
+static void reverse_shows_as_r_at_the_bottom_right_of_the_gate(void) {
+  car_t car = car_at_speed(-CAR_REVERSE_SPEED / 2);
+  car_body_t body = create_car_body(0.0);
+  assert(engine_gear(car.speed) == GEAR_REVERSE);
+  dashboard_state_t state = dashboard_state(&car, &body);
+  assert(state.gear == GEAR_REVERSE);
+  assert(state.speed_needle > 0.0 && state.rev_needle > 0.0);
+  gear_slot_t slot = gear_gate_slot(GEAR_REVERSE);
+  assert(slot.column == GEAR_GATE_COLUMNS - 1 && slot.row == 1);
+  gear_lever_t lever = create_gear_lever(GEAR_REVERSE);
+  assert(near(lever.column, GEAR_GATE_COLUMNS - 1) && near(lever.row, 1.0));
+  char text[16];
+  format_speed(-CAR_MAX_SPEED / 2, text, sizeof text);
+  assert(strcmp(text, "75 MPH") == 0);
+}
+
 static void check_layout_fits(int width, int height) {
   dashboard_state_t still = {0.0, 0.0, 0.0, 0.0, 0.0, 1};
   dashboard_layout_t layout = dashboard_layout(width, height, &still);
@@ -934,7 +977,7 @@ static void speed_reads_in_miles_per_hour(void) {
   assert(near(speed_in_mph(0.0), 0.0));
   assert(near(speed_in_mph(CAR_MAX_SPEED), CAR_TOP_SPEED_MPH));
   assert(near(speed_in_mph(CAR_MAX_SPEED / 2), CAR_TOP_SPEED_MPH / 2));
-  assert(near(speed_in_mph(-CAR_MAX_SPEED), 0.0));
+  assert(near(speed_in_mph(-CAR_MAX_SPEED), CAR_TOP_SPEED_MPH));
   format_speed(0.0, text, sizeof text);
   assert(strcmp(text, "0 MPH") == 0);
   format_speed(CAR_MAX_SPEED, text, sizeof text);
@@ -2063,6 +2106,19 @@ static void stage_shows_traffic_behind_in_the_mirror(void) {
   destroy_driving_stage(&stage);
 }
 
+static void stage_reverses_on_request_and_moves_the_lever_to_r(void) {
+  driving_stage_t stage = stage_with_dummy_screen();
+  stage.car.position = 20 * SEGMENT_LENGTH;
+  for (int frame = 0; frame < 120; ++frame) {
+    advance_driving_stage(&stage, REVERSE, 1.0);
+  }
+  assert(stage.car.speed < 0.0);
+  assert(stage.car.position < 20 * SEGMENT_LENGTH);
+  assert(near(stage.gear_lever.column, GEAR_GATE_COLUMNS - 1));
+  assert(near(stage.gear_lever.row, 1.0));
+  destroy_driving_stage(&stage);
+}
+
 static void stage_crashes_the_car_into_a_tree(void) {
   driving_stage_t stage = stage_with_dummy_screen();
   const scenery_item_t* tree = NULL;
@@ -2146,6 +2202,9 @@ int main(int argc, char* argv[]) {
       {"car", a_parked_car_does_not_steer},
       {"car", steering_builds_up_and_carries_on_after_release},
       {"car", steering_is_measured_rather_than_twitchy},
+      {"car", reverse_backs_the_car_up_slowly_from_rest},
+      {"car", reverse_brakes_a_moving_car_before_backing_up},
+      {"car", steering_in_reverse_moves_the_car_the_same_way},
       {"car", car_cannot_leave_the_verge},
       {"car", bends_push_harder_at_higher_speed},
       {"car", grass_slows_the_car_and_loosens_its_grip},
@@ -2165,6 +2224,7 @@ int main(int argc, char* argv[]) {
       {"dashboard", dashboard_moves_with_the_body},
       {"dashboard", dial_needles_start_bottom_left_and_sweep_clockwise},
       {"dashboard", gear_lever_sits_in_the_h_pattern_slot_of_the_gear},
+      {"dashboard", reverse_shows_as_r_at_the_bottom_right_of_the_gate},
       {"dashboard", dashboard_sits_low_and_leaves_the_road_visible},
       {"dashboard", dashboard_layout_moves_with_the_body},
       {"dashboard", speed_reads_in_miles_per_hour},
@@ -2226,6 +2286,7 @@ int main(int argc, char* argv[]) {
       {"stage", stage_track_comes_from_the_seed},
       {"stage", stage_stops_the_car_behind_traffic},
       {"stage", stage_shows_traffic_behind_in_the_mirror},
+      {"stage", stage_reverses_on_request_and_moves_the_lever_to_r},
       {"stage", stage_crashes_the_car_into_a_tree},
       {"stage", stage_counts_laps},
       {"stage", stage_releases_everything},

@@ -15,6 +15,7 @@
 #include <stdint.h>
 
 #define ENGINE_GEARS 7
+#define GEAR_REVERSE 0 /* engine_gear while backing up */
 
 /* 0 at rest, 1 at the red line; drops at each gear change. */
 double engine_rpm_fraction(double speed);

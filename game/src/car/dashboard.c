@@ -36,7 +36,8 @@ double dial_angle(double fraction) {
 
 dashboard_state_t dashboard_state(const car_t* car, const car_body_t* body) {
   dashboard_state_t state;
-  state.speed_needle = clamp(car->speed / CAR_MAX_SPEED, 0.0, 1.0) * DIAL_SWEEP;
+  state.speed_needle =
+      clamp(fabs(car->speed) / CAR_MAX_SPEED, 0.0, 1.0) * DIAL_SWEEP;
   state.rev_needle = engine_rpm_fraction(car->speed) * DIAL_SWEEP;
   state.wheel_angle = clamp(car->lateral_speed / CAR_STEERING_RATE, -1.0, 1.0) *
                       WHEEL_MAX_ANGLE;
@@ -47,7 +48,11 @@ dashboard_state_t dashboard_state(const car_t* car, const car_body_t* body) {
 }
 
 gear_slot_t gear_gate_slot(int gear) {
-  gear = gear < 1 ? 1 : (gear > ENGINE_GEARS ? ENGINE_GEARS : gear);
+  if (gear <= GEAR_REVERSE) {
+    gear_slot_t reverse = {GEAR_GATE_COLUMNS - 1, 1};
+    return reverse;
+  }
+  gear = gear > ENGINE_GEARS ? ENGINE_GEARS : gear;
   gear_slot_t slot = {(gear - 1) / 2, gear % 2 == 1 ? -1 : 1};
   return slot;
 }
@@ -82,7 +87,7 @@ dashboard_layout_t dashboard_layout(int width, int height,
 }
 
 double speed_in_mph(double speed) {
-  return speed < 0.0 ? 0.0 : speed / CAR_MAX_SPEED * CAR_TOP_SPEED_MPH;
+  return fabs(speed) / CAR_MAX_SPEED * CAR_TOP_SPEED_MPH;
 }
 
 void format_speed(double speed, char* text, size_t size) {
