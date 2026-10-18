@@ -1,9 +1,8 @@
 # Car Driving
 
-An arcade racer seen from the cockpit of a Formula One car, built with C and
-SDL2 on the same [sdl-2d-game-engine](https://github.com/andrealaforgia/sdl-2d-game-engine)
-submodule as [Asteroids](https://github.com/andrealaforgia/asteroids). A
-random closed circuit every run, with hills, bends in both directions,
+An arcade racer seen from the driver's seat, built with C and SDL2 on the
+[sdl-2d-game-engine](https://github.com/andrealaforgia/sdl-2d-game-engine)
+submodule. A random closed circuit every run, with hills, bends in both directions,
 trees and signs beside the road, traffic to overtake or run into, a lap
 timer, and distant hills under a hazy sky.
 
@@ -58,10 +57,14 @@ candidates that break the limits are rolled again.
 ## What you see and hear
 
 The driver's view: a translucent dashboard low across the screen with a
-speedometer, a rev counter with a red zone, and a leather steering wheel
-that turns as the car steers. The wheel is painted at start-up into a
-transparent sprite (a shaded rim with stitching, three metal spokes and a
-padded hub) and rotated by SDL, so no image files are needed. The whole
+speedometer, a rev counter with a red zone, an open gear gate with a
+lever that slides through the H from slot to slot as the gearbox changes
+up and down, and a leather steering wheel that turns as the car steers.
+All of it is painted at start-up into transparent sprites (the wheel's
+stitched rim and spokes, the dials' chrome bezels, printed faces and
+shadowed needles, the milled aluminium gate and the chromed lever with
+its leather boot) and rotated or moved by SDL, so no image files are
+needed. The whole
 dashboard bobs on the suspension, dips under braking, lifts under power
 and sways in bends, and over a sharp crest at speed the car takes off and
 lands with a thump through the springs. The grass is bumpy.
@@ -70,7 +73,7 @@ Traffic cruises in the three lanes at a quarter to a half of your top
 speed, slows down behind whatever is ahead of it (you included), and
 stops you dead if you run into it. Leaving the road at speed into a tree
 or a sign is a crash: most of your speed goes, the car bounces back and
-the suspension takes a jolt. The HUD shows the speed in mph at the top centre, the gear, the lap number
+the suspension takes a jolt. The HUD shows the speed in mph in big arcade lettering at the top centre, the gear, the lap number
 with the running lap time, and the best lap once you have one.
 
 All sound is synthesised, so there are no audio assets. The engine is

@@ -9,10 +9,13 @@
 #include "car_body.h"
 #include "clip.h"
 #include "dashboard.h"
+#include "dial_sprite.h"
 #include "driving_stage.h"
 #include "engine_note.h"
 #include "engine_synth.h"
 #include "game_constants.h"
+#include "gear_gate_sprite.h"
+#include "gear_lever.h"
 #include "lap_timer.h"
 #include "projection.h"
 #include "road_texture.h"
@@ -523,6 +526,13 @@ static void uphill_slows_a_coasting_car_faster_than_the_flat(void) {
   assert(uphill.speed < flat.speed);
 }
 
+static void flat_out_up_the_steepest_hill_keeps_most_of_the_speed(void) {
+  car_t car = car_at_speed(CAR_MAX_SPEED);
+  road_conditions_t steepest = {0.0, TRACK_MAX_SLOPE, false};
+  drive(&car, THROTTLE, 10.0, steepest);
+  assert(car.speed >= 0.85 * CAR_MAX_SPEED);
+}
+
 static void a_parked_car_rolls_down_a_hill(void) {
   car_t car = create_car();
   road_conditions_t descent = {0.0, -0.3, false};
@@ -562,6 +572,14 @@ static void steering_builds_up_and_carries_on_after_release(void) {
   assert(car.x < at_release);
   drive(&car, NO_INPUT, 2.0, FLAT);
   assert(fabs(car.lateral_speed) < 1e-3);
+}
+
+static void steering_is_measured_rather_than_twitchy(void) {
+  car_t car = car_at_speed(CAR_MAX_SPEED);
+  drive(&car, RIGHT, 0.1, FLAT);
+  assert(car.lateral_speed < 0.5 * CAR_STEERING_RATE);
+  drive(&car, RIGHT, 0.9, FLAT);
+  assert(car.x > 0.8 && car.x < 1.3);
 }
 
 static void car_cannot_leave_the_verge(void) {
@@ -822,24 +840,69 @@ static void dashboard_moves_with_the_body(void) {
   assert(moving.sway < 0.0);
 }
 
-static void dashboard_sits_low_and_leaves_the_road_visible(void) {
-  dashboard_state_t still = {0.0, 0.0, 0.0, 0.0, 0.0};
-  dashboard_layout_t layout = dashboard_layout(1600, 900, &still);
-  assert(layout.panel_top >= 900 * 3 / 4);
-  assert(layout.wheel_y - layout.wheel_radius >= 900 * 7 / 10);
-  assert(layout.wheel_y + layout.wheel_radius > 900);
-  assert(layout.wheel_x == 800);
+static void dial_needles_start_bottom_left_and_sweep_clockwise(void) {
+  /* Screen angles: y grows downwards, so sin > 0 points down. */
+  assert(cos(dial_angle(0.0)) < -0.5 && sin(dial_angle(0.0)) > 0.4);
+  assert(near(sin(dial_angle(0.5)), -1.0));
+  assert(cos(dial_angle(1.0)) > 0.5 && sin(dial_angle(1.0)) > 0.4);
+  for (double f = 0.0; f < 1.0; f += 0.05) {
+    assert(dial_angle(f + 0.05) > dial_angle(f));
+  }
+  assert(near(dial_angle(1.0) - dial_angle(0.0), DIAL_SWEEP));
+}
+
+static void gear_lever_sits_in_the_h_pattern_slot_of_the_gear(void) {
+  gear_slot_t first = gear_gate_slot(1);
+  assert(first.column == 0 && first.row == -1);
+  gear_slot_t second = gear_gate_slot(2);
+  assert(second.column == 0 && second.row == 1);
+  gear_slot_t third = gear_gate_slot(3);
+  assert(third.column == 1 && third.row == -1);
+  gear_slot_t sixth = gear_gate_slot(6);
+  assert(sixth.column == 2 && sixth.row == 1);
+  gear_slot_t seventh = gear_gate_slot(ENGINE_GEARS);
+  assert(seventh.column == 3 && seventh.row == -1);
+  assert(GEAR_GATE_COLUMNS == 4);
+  car_t car = car_at_speed(CAR_MAX_SPEED / 2);
+  car_body_t body = create_car_body(0.0);
+  dashboard_state_t state = dashboard_state(&car, &body);
+  assert(state.gear == engine_gear(car.speed));
+}
+
+static void check_layout_fits(int width, int height) {
+  dashboard_state_t still = {0.0, 0.0, 0.0, 0.0, 0.0, 1};
+  dashboard_layout_t layout = dashboard_layout(width, height, &still);
+  assert(layout.gate_x - layout.gate_width / 2 >
+         layout.rev_x + layout.dial_radius);
+  assert(layout.gate_x + layout.gate_width / 2 < width);
+  assert(layout.gate_y - layout.gate_height / 2 >= layout.panel_top);
+  assert(layout.gate_y + layout.gate_height / 2 <= height);
+  assert(layout.gate_width > 0 && layout.gate_height > 0);
+  assert(layout.panel_top >= height * 3 / 4);
+  assert(layout.wheel_radius >= height * 29 / 100);
+  assert(layout.wheel_y - layout.wheel_radius >= height * 55 / 100);
+  assert(layout.wheel_y - layout.wheel_radius <= height * 65 / 100);
+  assert(layout.wheel_y + layout.wheel_radius > height);
+  assert(layout.wheel_x == width / 2);
   assert(layout.speed_x + layout.dial_radius <
          layout.wheel_x - layout.wheel_radius);
   assert(layout.rev_x - layout.dial_radius >
          layout.wheel_x + layout.wheel_radius);
-  assert(layout.dial_y + layout.dial_radius <= 900);
+  assert(layout.speed_x - layout.dial_radius >= 0);
+  assert(layout.rev_x + layout.dial_radius <= width);
+  assert(layout.dial_y + layout.dial_radius <= height);
   assert(layout.dial_y - layout.dial_radius >= layout.panel_top);
 }
 
+static void dashboard_sits_low_and_leaves_the_road_visible(void) {
+  check_layout_fits(1600, 900);
+  check_layout_fits(1280, 800);
+  check_layout_fits(2560, 1440);
+}
+
 static void dashboard_layout_moves_with_the_body(void) {
-  dashboard_state_t still = {0.0, 0.0, 0.0, 0.0, 0.0};
-  dashboard_state_t moving = {0.0, 0.0, 0.0, 10.0, -6.0};
+  dashboard_state_t still = {0.0, 0.0, 0.0, 0.0, 0.0, 1};
+  dashboard_state_t moving = {0.0, 0.0, 0.0, 10.0, -6.0, 1};
   dashboard_layout_t at_rest = dashboard_layout(1600, 900, &still);
   dashboard_layout_t shaken = dashboard_layout(1600, 900, &moving);
   assert(shaken.panel_top == at_rest.panel_top + 10);
@@ -919,6 +982,121 @@ static void steering_wheel_is_lit_from_the_top_left(void) {
   assert(lit > shaded * 1.3);
   assert(wheel_luminance(pixels, c + (int)(0.55 * (WHEEL_TEST_SIZE / 2)), c) >
          wheel_luminance(pixels, c, c - (int)(0.9 * (WHEEL_TEST_SIZE / 2))));
+}
+
+/* ---- gear lever ---- */
+
+static void gear_lever_starts_in_its_gear_and_stays_put(void) {
+  gear_lever_t lever = create_gear_lever(3);
+  assert(near(lever.column, 1.0) && near(lever.row, -1.0));
+  update_gear_lever(&lever, 3, 1.0);
+  assert(near(lever.column, 1.0) && near(lever.row, -1.0));
+}
+
+static void gear_lever_slides_straight_down_from_first_to_second(void) {
+  gear_lever_t lever = create_gear_lever(1);
+  update_gear_lever(&lever, 2, 0.02);
+  assert(near(lever.column, 0.0));
+  assert(lever.row > -1.0 && lever.row < 1.0);
+  update_gear_lever(&lever, 2, 1.0);
+  assert(near(lever.column, 0.0) && near(lever.row, 1.0));
+}
+
+static void gear_lever_follows_the_h_through_the_neutral_bar(void) {
+  gear_lever_t lever = create_gear_lever(2);
+  update_gear_lever(&lever, 3, 0.02);
+  assert(near(lever.column, 0.0));
+  assert(lever.row < 1.0);
+  bool crossed_the_bar = false;
+  for (int step = 0; step < 200; ++step) {
+    update_gear_lever(&lever, 3, 0.005);
+    if (lever.column > 0.05 && lever.column < 0.95) {
+      assert(near(lever.row, 0.0));
+      crossed_the_bar = true;
+    }
+  }
+  assert(crossed_the_bar);
+  assert(near(lever.column, 1.0) && near(lever.row, -1.0));
+}
+
+/* ---- gear gate sprites ---- */
+
+static uint32_t sprite_pixel(const uint32_t* pixels, int width, double fx,
+                             double fy, int height) {
+  return pixels[(int)(fy * height) * width + (int)(fx * width)];
+}
+
+static double pixel_luminance(uint32_t p) {
+  return ((p & 0xFF) + ((p >> 8) & 0xFF) + ((p >> 16) & 0xFF)) / 3.0;
+}
+
+static void gear_gate_plate_is_metal_with_dark_slots(void) {
+  enum { W = 256, H = 192 };
+  static uint32_t pixels[W * H];
+  render_gear_gate_pixels(pixels, W, H);
+  assert((pixels[0] >> 24) == 0);
+  uint32_t plate = sprite_pixel(pixels, W, 0.5, 0.06, H);
+  assert((plate >> 24) == 255);
+  assert(pixel_luminance(plate) > 110.0);
+  uint32_t slot = sprite_pixel(pixels, W, gate_slot_x(1), gate_slot_y(-1), H);
+  assert((slot >> 24) == 255);
+  assert(pixel_luminance(slot) < pixel_luminance(plate) * 0.5);
+  uint32_t bar = sprite_pixel(pixels, W, 0.5, 0.5, H);
+  assert(pixel_luminance(bar) < pixel_luminance(plate) * 0.5);
+  assert(gate_slot_x(0) < gate_slot_x(3) && gate_slot_y(-1) < gate_slot_y(1));
+}
+
+static void gear_lever_has_a_knob_on_a_shaft_and_nothing_beside_it(void) {
+  enum { W = 80, H = 160 };
+  static uint32_t pixels[W * H];
+  render_gear_lever_pixels(pixels, W, H);
+  assert((pixels[0] >> 24) == 0);
+  assert((sprite_pixel(pixels, W, 0.5, LEVER_KNOB_Y, H) >> 24) == 255);
+  assert((sprite_pixel(pixels, W, 0.5, 0.6, H) >> 24) == 255);
+  assert((sprite_pixel(pixels, W, 0.9, 0.6, H) >> 24) == 0);
+  assert((sprite_pixel(pixels, W, 0.5, 0.97, H) >> 24) > 0);
+}
+
+/* ---- dial sprites ---- */
+
+static uint32_t face_pixel_at(const uint32_t* pixels, int size, double fraction,
+                              double radius) {
+  double angle = dial_angle(fraction);
+  int x = (int)(size / 2.0 + radius * size / 2.0 * cos(angle));
+  int y = (int)(size / 2.0 + radius * size / 2.0 * sin(angle));
+  return pixels[y * size + x];
+}
+
+static void dial_face_has_a_chrome_bezel_ticks_and_a_red_zone(void) {
+  enum { S = 256 };
+  static uint32_t rev[S * S];
+  static uint32_t speed[S * S];
+  render_dial_face_pixels(rev, S, 8, 0.85);
+  render_dial_face_pixels(speed, S, 6, 2.0);
+  assert((rev[0] >> 24) == 0);
+  assert((rev[(S / 2) * S + S / 2] >> 24) == 255);
+  assert(pixel_luminance(rev[(S / 2) * S + S / 2]) < 60.0);
+  assert(pixel_luminance(face_pixel_at(rev, S, 0.35, 0.97)) > 140.0);
+  assert(pixel_luminance(face_pixel_at(rev, S, 0.0, DIAL_TICK_RADIUS)) > 180.0);
+  assert(pixel_luminance(face_pixel_at(rev, S, 0.03, DIAL_TICK_RADIUS)) < 60.0);
+  uint32_t hot = face_pixel_at(rev, S, 0.95, DIAL_RED_ZONE_RADIUS);
+  assert((hot & 0xFF) > 150 && ((hot >> 8) & 0xFF) < 90);
+  uint32_t cool = face_pixel_at(speed, S, 0.95, DIAL_RED_ZONE_RADIUS);
+  assert(((cool >> 8) & 0xFF) > (cool & 0xFF) / 2);
+}
+
+static void needle_is_a_red_blade_with_a_hub_and_nothing_beside_it(void) {
+  enum { W = 32, H = 256 };
+  static uint32_t pixels[W * H];
+  render_needle_pixels(pixels, W, H);
+  uint32_t tip = pixels[(int)(0.08 * H) * W + W / 2];
+  assert((tip >> 24) == 255);
+  assert((tip & 0xFF) > 180 && ((tip >> 8) & 0xFF) < 120);
+  assert((pixels[(int)(0.4 * H) * W + 2] >> 24) == 0);
+  uint32_t hub = pixels[(int)(NEEDLE_PIVOT_Y * H) * W + W / 2];
+  assert((hub >> 24) == 255);
+  assert(pixel_luminance(hub) > 90.0);
+  assert((pixels[0] >> 24) == 0);
 }
 
 /* ---- road view ---- */
@@ -1839,11 +2017,13 @@ int main(int argc, char* argv[]) {
       {"car", top_speed_is_reached_on_the_flat_and_never_exceeded},
       {"car", braking_beats_coasting_and_both_stop_the_car},
       {"car", uphill_slows_a_coasting_car_faster_than_the_flat},
+      {"car", flat_out_up_the_steepest_hill_keeps_most_of_the_speed},
       {"car", a_parked_car_rolls_down_a_hill},
       {"car", downhill_exceeds_the_flat_top_speed_but_not_the_limit},
       {"car", car_position_wraps_at_the_end_of_the_track},
       {"car", a_parked_car_does_not_steer},
       {"car", steering_builds_up_and_carries_on_after_release},
+      {"car", steering_is_measured_rather_than_twitchy},
       {"car", car_cannot_leave_the_verge},
       {"car", bends_push_harder_at_higher_speed},
       {"car", grass_slows_the_car_and_loosens_its_grip},
@@ -1861,12 +2041,21 @@ int main(int argc, char* argv[]) {
       {"dashboard", needles_rest_at_zero_and_sweep_with_speed_and_revs},
       {"dashboard", steering_wheel_turns_the_way_the_car_steers},
       {"dashboard", dashboard_moves_with_the_body},
+      {"dashboard", dial_needles_start_bottom_left_and_sweep_clockwise},
+      {"dashboard", gear_lever_sits_in_the_h_pattern_slot_of_the_gear},
       {"dashboard", dashboard_sits_low_and_leaves_the_road_visible},
       {"dashboard", dashboard_layout_moves_with_the_body},
       {"dashboard", speed_reads_in_miles_per_hour},
       {"wheel", steering_wheel_is_see_through_except_rim_spokes_and_hub},
       {"wheel", steering_wheel_edges_are_smooth_and_symmetric},
       {"wheel", steering_wheel_is_lit_from_the_top_left},
+      {"lever", gear_lever_starts_in_its_gear_and_stays_put},
+      {"lever", gear_lever_slides_straight_down_from_first_to_second},
+      {"lever", gear_lever_follows_the_h_through_the_neutral_bar},
+      {"gate", gear_gate_plate_is_metal_with_dark_slots},
+      {"gate", gear_lever_has_a_knob_on_a_shaft_and_nothing_beside_it},
+      {"dial", dial_face_has_a_chrome_bezel_ticks_and_a_red_zone},
+      {"dial", needle_is_a_red_blade_with_a_hub_and_nothing_beside_it},
       {"view", cockpit_camera_sits_above_the_car_facing_down_the_road},
       {"view", cockpit_camera_pitches_with_the_slope_and_the_body},
       {"view", straight_road_stays_centred_and_narrows},

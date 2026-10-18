@@ -8,11 +8,13 @@
 
 #include <stdbool.h>
 
+#include "arcade_font.h"
 #include "car.h"
 #include "car_audio.h"
 #include "car_body.h"
 #include "cockpit_renderer.h"
 #include "fps_tracker.h"
+#include "gear_lever.h"
 #include "graphics_context.h"
 #include "keyboard.h"
 #include "lap_timer.h"
@@ -33,12 +35,14 @@ typedef struct {
   car_t car;
   car_body_t body;
   lap_timer_t lap_timer;
+  gear_lever_t gear_lever;
   bool crashed; /* a collision happened in the last advance */
   camera_t camera;
   camera_pose_t pose;
   road_view_t view;
   road_renderer_t road_renderer;
   cockpit_renderer_t cockpit_renderer;
+  arcade_font_t font; /* for the big speed readout */
   car_input_t last_input;
   double simulation_accumulator;
   bool show_fps;

@@ -33,10 +33,14 @@
   (CAR_ENGINE_ACCELERATION / (CAR_MAX_SPEED * CAR_MAX_SPEED))
 /* Rolling resistance: a small constant (static friction) plus a term
  * proportional to speed. */
-#define CAR_STATIC_FRICTION (-CAR_MAX_SPEED / 40.0)
+#define CAR_STATIC_FRICTION (-CAR_MAX_SPEED / 80.0)
 #define CAR_ROLLING_RESISTANCE (-CAR_MAX_SPEED / 10.0)
 #define CAR_BRAKING_DECELERATION (-CAR_MAX_SPEED / 1.5)
-#define CAR_GRAVITY (CAR_MAX_SPEED / 2.0)
+/* Gravity: the pull along the road's slope is light enough that flat out
+ * up the steepest hill keeps most of the top speed, while a parked car
+ * still rolls down; the body falls faster than that when airborne. */
+#define CAR_GRAVITY (CAR_MAX_SPEED / 6.0)
+#define CAR_FALL_GRAVITY (CAR_MAX_SPEED / 2.0)
 /* What the top speed on the flat reads as on the speedometer. */
 #define CAR_TOP_SPEED_MPH 150.0
 #define CAR_OFF_ROAD_DECELERATION (-CAR_MAX_SPEED / 2.0)
@@ -49,14 +53,14 @@
 #define CRASH_JOLT 1.0
 /* Lateral speed in road widths per second at top speed, and how quickly
  * the car reaches it (per second). */
-#define CAR_STEERING_RATE 2.0
-#define CAR_GRIP_ON_ROAD 8.0
-#define CAR_GRIP_ON_GRASS 2.5
+#define CAR_STEERING_RATE 1.4
+#define CAR_GRIP_ON_ROAD 5.0
+#define CAR_GRIP_ON_GRASS 2.0
 #define CAR_CENTRIFUGAL 0.35
 
 /* Car body: flight over crests, suspension, pitch and roll. Suspension
  * travel is normalised (1 = fully compressed). */
-#define BODY_GRAVITY CAR_GRAVITY
+#define BODY_GRAVITY CAR_FALL_GRAVITY
 #define BODY_MIN_HOP_ALTITUDE 100.0
 #define SUSPENSION_STIFFNESS 400.0
 #define SUSPENSION_DAMPING 25.0

@@ -16,6 +16,9 @@ spec.loader.exec_module(engine_tests)
 GROUPS = (
     "projection", "track", "spline", "generator", "clip", "car", "body", "dashboard",
     "wheel",
+    "lever",
+    "gate",
+    "dial",
     "view", "scenery", "traffic", "texture", "note", "laps", "stage",
 )
 

@@ -12,10 +12,16 @@
 
 #include "car.h"
 #include "car_body.h"
+#include "engine_note.h"
+#include "geometry.h" /* M_PI on every libc */
 
 /* Needles sweep 240 degrees from rest; the wheel turns up to 108. */
 #define DIAL_SWEEP (M_PI * 4.0 / 3.0)
 #define WHEEL_MAX_ANGLE (M_PI * 0.6)
+
+/* Screen angle (y down, so angles grow clockwise) of a point along a
+ * dial's sweep: 0 is bottom left, 0.5 straight up, 1 bottom right. */
+double dial_angle(double fraction);
 
 typedef struct {
   double speed_needle; /* 0 at rest, DIAL_SWEEP at top speed */
@@ -23,7 +29,19 @@ typedef struct {
   double wheel_angle;  /* positive turns clockwise, steering right */
   double bob;          /* pixels at 900 lines, positive moves down */
   double sway;         /* pixels at 900 lines, positive moves right */
+  int gear;            /* 1 to ENGINE_GEARS */
 } dashboard_state_t;
+
+/* The gear lever's slot in an H-pattern gate: odd gears along the top
+ * row, even gears along the bottom, two gears to a column. */
+#define GEAR_GATE_COLUMNS ((ENGINE_GEARS + 1) / 2)
+
+typedef struct {
+  int column; /* 0 on the left */
+  int row;    /* -1 top, 1 bottom */
+} gear_slot_t;
+
+gear_slot_t gear_gate_slot(int gear);
 
 dashboard_state_t dashboard_state(const car_t* car, const car_body_t* body);
 
@@ -45,6 +63,10 @@ typedef struct {
   int wheel_x;
   int wheel_y;
   int wheel_radius;
+  int gate_x; /* centre of the gear gate, right of the rev counter */
+  int gate_y;
+  int gate_width;
+  int gate_height;
 } dashboard_layout_t;
 
 dashboard_layout_t dashboard_layout(int width, int height,

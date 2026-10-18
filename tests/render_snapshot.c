@@ -7,6 +7,7 @@
 #include <stdlib.h>
 
 #include "driving_stage.h"
+#include "engine_note.h"
 
 int main(int argc, char* argv[]) {
   if (argc < 2) {
@@ -41,6 +42,7 @@ int main(int argc, char* argv[]) {
   stage.car.position = position;
   stage.car.x = car_x;
   stage.car.speed = CAR_MAX_SPEED / 2;
+  stage.gear_lever = create_gear_lever(engine_gear(stage.car.speed));
   stage.car.lateral_speed = lateral_speed;
   stage.body.roll = -lateral_speed / CAR_STEERING_RATE;
   stage.body.height = track_height_at(&stage.track, position) + altitude;

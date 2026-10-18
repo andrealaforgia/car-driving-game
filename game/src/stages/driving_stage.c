@@ -31,6 +31,7 @@ bool init_driving_stage(driving_stage_ptr stage,
   stage->car = create_car();
   stage->body = create_car_body(0.0);
   stage->lap_timer = create_lap_timer();
+  stage->gear_lever = create_gear_lever(engine_gear(0.0));
   stage->crashed = false;
   stage->camera = create_camera(
       CAMERA_FIELD_OF_VIEW_DEGREES,
@@ -40,6 +41,10 @@ bool init_driving_stage(driving_stage_ptr stage,
   stage->view.order_count = 0;
   stage->road_renderer = init_road_renderer(graphics_context);
   stage->cockpit_renderer = init_cockpit_renderer(graphics_context);
+  stage->font = (arcade_font_t){0};
+  if (graphics_context->renderer) {
+    stage->font = load_arcade_font(graphics_context);
+  }
   stage->last_input = (car_input_t){false, false, false, false};
   stage->simulation_accumulator = 0.0;
   stage->show_fps = show_fps;
@@ -55,6 +60,7 @@ void destroy_driving_stage(driving_stage_ptr stage) {
   destroy_track(&stage->track);
   destroy_road_renderer(&stage->road_renderer);
   destroy_cockpit_renderer(&stage->cockpit_renderer);
+  free_arcade_font(&stage->font);
 }
 
 static void crash(driving_stage_ptr stage) {
@@ -87,6 +93,7 @@ static void simulate_step(driving_stage_ptr stage, car_input_t input,
   collide(stage);
   update_lap_timer(&stage->lap_timer, seconds, previous_position,
                    stage->car.position, track->length);
+  update_gear_lever(&stage->gear_lever, engine_gear(stage->car.speed), seconds);
   segment = &track->segments[segment_index_at(track, stage->car.position)];
   update_car_body(&stage->body, &stage->car, seconds,
                   track_height_at(track, stage->car.position),
@@ -177,12 +184,13 @@ static void render_hud(driving_stage_ptr stage) {
   }
   char text[48];
   format_speed(stage->car.speed, text, sizeof text);
-  text_dimensions_t speed_size = calculate_text_dimensions(text, scale);
-  write_text(
-      stage->graphics_context, text,
-      point((stage->graphics_context->screen_width - speed_size.width) / 2,
-            10 + speed_size.height),
-      scale, COLOR_WHITE);
+  int speed_scale = scale * 2;
+  int speed_width =
+      get_arcade_text_width_scaled(&stage->font, text, speed_scale);
+  render_arcade_text_scaled(
+      &stage->font, stage->graphics_context, text,
+      (stage->graphics_context->screen_width - speed_width) / 2, 12,
+      FONT_COLOR_WHITE, speed_scale);
   snprintf(text, sizeof text, "GEAR %d", engine_gear(stage->car.speed));
   write_right_aligned(stage, text, 10, scale);
   snprintf(text, sizeof text, "LAP %d ", stage->lap_timer.laps + 1);
@@ -225,7 +233,7 @@ void render_driving_stage(driving_stage_ptr stage) {
   render_road_view(stage->graphics_context, &stage->road_renderer,
                    &stage->view);
   render_cockpit(stage->graphics_context, &stage->cockpit_renderer, &stage->car,
-                 &stage->body);
+                 &stage->body, &stage->gear_lever);
   render_hud(stage);
   render_frame(stage->graphics_context);
 }
