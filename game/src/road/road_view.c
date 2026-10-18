@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "clip.h"
+#include "geometry.h"
 #include "road_texture.h"
 
 #define DRAW_FAR (DRAW_DISTANCE * SEGMENT_LENGTH)
