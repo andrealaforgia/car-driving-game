@@ -157,7 +157,7 @@ static void draw_dial(const graphics_context_ptr graphics_context,
   int scale = r / 40 > 0 ? r / 40 : 1;
   for (int major = 0; major <= majors; ++major) {
     double angle = dial_angle((double)major / majors);
-    char number[8];
+    char number[16];
     snprintf(number, sizeof number, "%d", major * label_step);
     text_dimensions_t size = calculate_text_dimensions(number, scale);
     double reach = r * (DIAL_TICK_RADIUS - 0.14) - size.height * 0.7;
@@ -195,7 +195,7 @@ static void engrave_gear_numbers(const graphics_context_ptr graphics_context,
   int scale = plate->h / 70 > 0 ? plate->h / 70 : 1;
   for (int number = 1; number <= ENGINE_GEARS; ++number) {
     gear_slot_t slot = gear_gate_slot(number);
-    char text[4];
+    char text[16];
     snprintf(text, sizeof text, "%d", number);
     text_dimensions_t size = calculate_text_dimensions(text, scale);
     int x =
